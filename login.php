@@ -27,15 +27,24 @@
             <h3 class="text-center mb-4">Login E-Rapor</h3>
             <form action="validasi.php" method="POST">
                 <div class="mb-3">
-                    <label>Username / NISN</label>
-                    <input type="text" name="username" class="form-control" required>
+                    <label class="form-label">Username / NISN</label>
+                    <input type="text" name="username" class="form-control" placeholder="Masukkan NISN" required>
                 </div>
                 <div class="mb-3">
-                    <label>Password</label>
-                    <input type="password" name="password" class="form-control" required>
+                    <label class="form-label">Password</label>
+                    <!-- Jika kamu tetap ingin batas 10 karakter -->
+                    <input type="password" name="password" class="form-control" maxlength="10" required>
                 </div>
-                <button type="submit" class="btn btn-primary w-100">Masuk</button>
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Masuk</button>
+                </div>
             </form>
+
+            <!-- Tambahan Link ke Register -->
+            <div class="mt-4 text-center">
+                <p class="mb-0 text-muted">Belum punya akun?</p>
+                <a href="register.php" class="text-decoration-none">Daftar Akun Siswa Baru</a>
+            </div>
         </div>
     </div>
 </body>
