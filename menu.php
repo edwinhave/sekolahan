@@ -9,13 +9,25 @@ include 'koneksi.php';
 $level_user = $_SESSION['level'];
 $nisn_login = $_SESSION['nisn'];
 
-// Ambil data detail siswa
+// Ambil data detail user yang login
 $query_user = mysqli_query($conn, "SELECT * FROM data_siswa WHERE nisn = '$nisn_login'");
 $user_data = mysqli_fetch_assoc($query_user);
 
-// Menghitung total siswa terdaftar
-$query_total = mysqli_query($conn, "SELECT COUNT(*) as total FROM data_siswa WHERE level = '1'");
-$total_siswa = mysqli_fetch_assoc($query_total)['total'];
+// --- LOGIKA STATISTIK UNTUK ADMIN ---
+if ($level_user == '2') {
+    // 1. Total Siswa
+    $q_total_siswa = mysqli_query($conn, "SELECT COUNT(*) as total FROM data_siswa WHERE level = '1'");
+    $total_siswa = mysqli_fetch_assoc($q_total_siswa)['total'];
+
+    // 2. Total Mata Pelajaran
+    $q_total_mapel = mysqli_query($conn, "SELECT COUNT(*) as total FROM mata_pelajaran");
+    $total_mapel = mysqli_fetch_assoc($q_total_mapel)['total'];
+
+    // 3. Rata-rata Nilai Seluruh Siswa (Global)
+    $q_avg = mysqli_query($conn, "SELECT AVG((pe1+pe2+pe3+pe4+pe5+pe6+pts+asaj)/8) as rata_global FROM tabel_nilai");
+    $avg_data = mysqli_fetch_assoc($q_avg);
+    $rata_rata_sekolah = ($avg_data['rata_global']) ? number_format($avg_data['rata_global'], 1) : 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -24,18 +36,19 @@ $total_siswa = mysqli_fetch_assoc($query_total)['total'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - SMA Negeri 1 Jakarta</title>
+    <title>Dashboard - Sekolah Gracia</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         :root {
             --dark-header: #0a0a1a;
+            --primary-blue: #2b59ff;
             --card-bg: #f8f9fc;
         }
 
         body {
             background-color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
         }
 
         .header-panel {
@@ -44,7 +57,6 @@ $total_siswa = mysqli_fetch_assoc($query_total)['total'];
             border-radius: 15px;
             padding: 30px;
             margin-top: 20px;
-            position: relative;
         }
 
         .info-card {
@@ -54,41 +66,28 @@ $total_siswa = mysqli_fetch_assoc($query_total)['total'];
             padding: 25px;
         }
 
-        .info-label {
-            color: #9a9a9a;
-            font-size: 0.85rem;
-        }
-
-        .info-value {
-            color: #333;
-            font-weight: 500;
-            margin-bottom: 15px;
-        }
-
-        .btn-custom-admin {
-            background-color: #2b59ff;
-            color: white;
-            border-radius: 8px;
-        }
-
-        .btn-custom-keluar {
-            background-color: #4a5568;
-            color: white;
-            border-radius: 8px;
-        }
-
-        .table thead th {
-            background-color: #2b59ff;
-            color: white;
-            font-weight: 500;
-            font-size: 0.85rem;
-            text-align: center;
+        .stat-card {
+            border-radius: 15px;
             border: none;
         }
 
-        .table tbody td {
-            font-size: 0.9rem;
-            vertical-align: middle;
+        .menu-card {
+            transition: transform 0.2s;
+            cursor: pointer;
+            border-radius: 15px;
+        }
+
+        .menu-card:hover {
+            transform: translateY(-5px);
+            background-color: #f0f4ff;
+        }
+
+        .table thead th {
+            background-color: var(--primary-blue);
+            color: white;
+            font-size: 0.85rem;
+            text-align: center;
+            border: none;
         }
 
         .avg-column {
@@ -101,188 +100,182 @@ $total_siswa = mysqli_fetch_assoc($query_total)['total'];
 <body>
 
     <div class="container pb-5">
-        <!-- Header -->
-        <div class="header-panel shadow mb-4">
-            <h2 class="fw-bold m-0">Sekolah Gracia Bandung</h2>
-            <p class="m-0 opacity-75">Laporan Hasil Belajar Siswa</p>
+        <div class="header-panel shadow mb-4 text-center">
+            <h2 class="fw-bold m-0">Sekolah Gracia</h2>
+            <p class="m-0 opacity-75">Sistem Informasi Akademik Sekolah</p>
         </div>
 
-        <!-- Navigasi -->
         <div class="d-flex justify-content-between align-items-center mb-4 px-2">
             <div>
-                <span class="text-muted">Halo, </span><span class="fw-bold"><?php echo $_SESSION['nama']; ?></span>
-                <span class="badge bg-primary ms-1"><?php echo ($level_user == '2') ? 'Admin' : 'Siswa'; ?></span>
+                <span class="text-muted">Selamat Datang, </span><span class="fw-bold"><?php echo $user_data['nama']; ?></span>
+                <span class="badge bg-primary ms-1"><?php echo ($level_user == '2') ? 'Guru / Admin' : 'Siswa'; ?></span>
             </div>
-            <div class="d-flex gap-2">
-                <?php if ($level_user == '2'): ?>
-                    <a href="tambah_nilai.php" class="btn btn-custom-admin btn-sm px-3 shadow-sm">Input Nilai</a>
-                    <a href="tambah_komentar.php" class="btn btn-outline-primary btn-sm px-3 shadow-sm bg-white">Beri Komentar</a>
-                <?php endif; ?>
-                <a href="logout.php" class="btn btn-custom-keluar btn-sm px-4 shadow-sm">Keluar</a>
-            </div>
-
+            <a href="logout.php" class="btn btn-dark btn-sm px-4 shadow-sm">Keluar</a>
         </div>
 
-        <!-- Informasi Siswa -->
-        <div class="card info-card shadow-sm mb-5">
-            <h5 class="fw-bold mb-4">Informasi Siswa</h5>
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="info-label">Nama Siswa</div>
-                    <div class="info-value"><?php echo $user_data['nama']; ?></div>
-                    <div class="info-label">NIS</div>
-                    <div class="info-value">2024-1842</div>
-                    <div class="info-label">Tahun Ajaran</div>
-                    <div class="info-value">2025-2026</div>
-                </div>
-                <div class="col-md-6">
-                    <div class="info-label">NISN</div>
-                    <div class="info-value"><?php echo $user_data['nisn']; ?></div>
-                    <div class="info-label">Kelas</div>
-                    <div class="info-value">Kelas <?php echo $user_data['kelas']; ?></div>
-                    <div class="info-label">Semester</div>
-                    <div class="info-value">Semester Genap</div>
+        <?php if ($level_user == '2'): ?>
+            <div class="card info-card shadow-sm mb-4">
+                <h5 class="fw-bold mb-4 small text-uppercase text-muted">Informasi Admin / Sekolah</h5>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 bg-white rounded shadow-sm border-start border-primary border-4">
+                            <div class="text-muted small">Total Siswa Terdaftar</div>
+                            <div class="h4 fw-bold mb-0"><?php echo $total_siswa; ?> Siswa</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 bg-white rounded shadow-sm border-start border-success border-4">
+                            <div class="text-muted small">Mata Pelajaran Aktif</div>
+                            <div class="h4 fw-bold mb-0"><?php echo $total_mapel; ?> Pelajaran</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="p-3 bg-white rounded shadow-sm border-start border-warning border-4">
+                            <div class="text-muted small">Rata-rata Nilai Sekolah</div>
+                            <div class="h4 fw-bold mb-0"><?php echo $rata_rata_sekolah; ?> / 100</div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Tabel Prestasi Akademik -->
-        <h5 class="fw-bold mb-3 px-2">Prestasi Akademik</h5>
-        <div class="card border-0 shadow-sm overflow-hidden mb-5" style="border-radius: 15px;">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th class="text-start ps-4">Mata Pelajaran</th>
-                            <th>PE1</th>
-                            <th>PE2</th>
-                            <th>PE3</th>
-                            <th>PE4</th>
-                            <th>PE5</th>
-                            <th>PE6</th>
-                            <th>PTS</th>
-                            <th>ASAJ</th>
-                            <th class="avg-column text-primary">Rata-Rata</th>
-                            <?php if ($level_user == '2') echo "<th>Aksi</th>"; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        $sql = "SELECT tabel_nilai.*, mata_pelajaran.matapelajaran FROM tabel_nilai JOIN mata_pelajaran ON tabel_nilai.id_matapelajaran = mata_pelajaran.id_matapelajaran";
-                        if ($level_user == '1') {
-                            $sql .= " WHERE tabel_nilai.nisn = '$nisn_login'";
-                        }
-                        $query = mysqli_query($conn, $sql);
-                        while ($row = mysqli_fetch_assoc($query)) {
-                            $rata = ($row['pe1'] + $row['pe2'] + $row['pe3'] + $row['pe4'] + $row['pe5'] + $row['pe6'] + $row['pts'] + $row['asaj']) / 8;
-                            echo "<tr class='text-center'>";
-                            echo "<td class='text-start ps-4 fw-bold'>" . $row['matapelajaran'] . "</td>";
-                            echo "<td>" . $row['pe1'] . "</td><td>" . $row['pe2'] . "</td><td>" . $row['pe3'] . "</td><td>" . $row['pe4'] . "</td><td>" . $row['pe5'] . "</td><td>" . $row['pe6'] . "</td><td>" . $row['pts'] . "</td><td>" . $row['asaj'] . "</td>";
-                            echo "<td class='avg-column text-primary'>" . number_format($rata, 2) . "</td>";
-                            if ($level_user == '2') {
-                                echo "<td>
-                                    <a href='edit_nilai.php?id=" . $row['id_nilai'] . "' class='btn btn-sm btn-outline-warning border-0'><i class='bi bi-pencil'></i></a>
-                                    <a href='hapus_nilai.php?id=" . $row['id_nilai'] . "' class='btn btn-sm btn-outline-danger border-0' onclick='return confirm(\"Hapus?\")'><i class='bi bi-trash'></i></a>
-                                  </td>";
+            <h5 class="fw-bold mb-3 px-2">Menu Kelola Data</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <a href="admin_cek_siswa.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
+                        <i class="bi bi-search fs-2 text-primary mb-2"></i>
+                        <h6 class="fw-bold text-dark mb-1">Monitor Siswa</h6>
+                        <small class="text-muted">Cek nilai & absensi per murid</small>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="tambah_nilai.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
+                        <i class="bi bi-plus-circle fs-2 text-success mb-2"></i>
+                        <h6 class="fw-bold text-dark mb-1">Input Nilai</h6>
+                        <small class="text-muted">Masukkan rincian nilai ujian</small>
+                    </a>
+                </div>
+                <div class="col-md-4">
+                    <a href="tambah_komentar.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
+                        <i class="bi bi-chat-dots fs-2 text-info mb-2"></i>
+                        <h6 class="fw-bold text-dark mb-1">Beri Komentar</h6>
+                        <small class="text-muted">Tulis catatan untuk perkembangan</small>
+                    </a>
+                </div>
+            </div>
+
+        <?php else: ?>
+            <div class="card info-card shadow-sm mb-4">
+                <h5 class="fw-bold mb-4 small text-uppercase text-muted">Informasi Siswa</h5>
+                <div class="row small">
+                    <div class="col-md-6">
+                        <div class="mb-2">Nama: <strong><?php echo $user_data['nama']; ?></strong></div>
+                        <div class="mb-2">NISN: <strong><?php echo $user_data['nisn']; ?></strong></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">Kelas: <strong><?php echo $user_data['kelas']; ?></strong></div>
+                        <div class="mb-2">Tahun Ajaran: <strong>2025/2026</strong></div>
+                    </div>
+                </div>
+            </div>
+
+
+            <h5 class="fw-bold mb-3 px-2">Prestasi Akademik</h5>
+            <div class="card border-0 shadow-sm overflow-hidden mb-4" style="border-radius: 15px;">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="text-start ps-4">Mata Pelajaran</th>
+                                <th>PE1</th>
+                                <th>PE2</th>
+                                <th>PE3</th>
+                                <th>PE4</th>
+                                <th>PE5</th>
+                                <th>PE6</th>
+                                <th>PTS</th>
+                                <th>ASAJ</th>
+                                <th class="avg-column text-primary">Rata-Rata</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $q_nilai = mysqli_query($conn, "SELECT n.*, m.matapelajaran FROM tabel_nilai n JOIN mata_pelajaran m ON n.id_matapelajaran = m.id_matapelajaran WHERE n.nisn = '$nisn_login'");
+                            if (mysqli_num_rows($q_nilai) > 0) {
+                                while ($row = mysqli_fetch_assoc($q_nilai)) {
+                                    $rata = ($row['pe1'] + $row['pe2'] + $row['pe3'] + $row['pe4'] + $row['pe5'] + $row['pe6'] + $row['pts'] + $row['asaj']) / 8;
+                                    echo "<tr class='text-center'>";
+                                    echo "<td class='text-start ps-4 fw-bold'>" . $row['matapelajaran'] . "</td>";
+                                    echo "<td>" . $row['pe1'] . "</td><td>" . $row['pe2'] . "</td><td>" . $row['pe3'] . "</td><td>" . $row['pe4'] . "</td><td>" . $row['pe5'] . "</td><td>" . $row['pe6'] . "</td><td>" . $row['pts'] . "</td><td>" . $row['asaj'] . "</td>";
+                                    echo "<td class='avg-column text-primary'>" . number_format($rata, 2) . "</td>";
+                                    echo "</tr>";
+                                }
+                            } else {
+                                echo "<tr><td colspan='10' class='text-center py-4 text-muted'>Belum ada data nilai.</td></tr>";
                             }
-                            echo "</tr>";
-                        }
-                        ?>
-                    </tbody>
-                </table>
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
 
-        <?php
-        // Logika Kehadiran & Pelanggaran (Diletakkan di dalam container)
-        $q_hadir = mysqli_query($conn, "SELECT * FROM kehadiran WHERE nisn = '$nisn_login'");
-        $h = (mysqli_num_rows($q_hadir) > 0) ? mysqli_fetch_assoc($q_hadir) : ['total_hari' => 0, 'hadir' => 0, 'terlambat' => 0, 'izin' => 0, 'alpha' => 0, 'sakit' => 0];
-        $persen = ($h['total_hari'] > 0) ? ($h['hadir'] / $h['total_hari']) * 100 : 0;
-
-        $q_p = mysqli_query($conn, "SELECT * FROM pelanggaran WHERE nisn = '$nisn_login'");
-        $total_p = mysqli_num_rows($q_p);
-        ?>
-
-        <div class="row">
-            <!-- Kehadiran -->
-            <div class="col-md-6 mb-4">
-                <div class="card info-card shadow-sm h-100 border-0">
-                    <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card info-card shadow-sm h-100">
                         <h5 class="fw-bold mb-4">Kehadiran</h5>
-                        <div class="text-center mb-4">
-                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center" style="width: 100px; height: 100px; border: 6px solid #f0f2f5; margin: 0 auto;">
-                                <h5 class="m-0 fw-bold"><?php echo number_format($persen, 1); ?>%</h5>
+                        <?php
+                        $q_h = mysqli_query($conn, "SELECT * FROM kehadiran WHERE nisn = '$nisn_login'");
+                        $h = mysqli_fetch_assoc($q_h) ?: ['total_hari' => 0, 'hadir' => 0, 'izin' => 0, 'sakit' => 0, 'alpha' => 0, 'terlambat' => 0];
+                        $persen = ($h['total_hari'] > 0) ? ($h['hadir'] / $h['total_hari']) * 100 : 0;
+                        ?>
+                        <div class="text-center mb-3">
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto shadow-sm" style="width: 80px; height: 80px; border: 5px solid #eef2ff;">
+                                <span class="fw-bold"><?php echo number_format($persen, 1); ?>%</span>
                             </div>
-                            <p class="mt-2 text-muted small">Tingkat Kehadiran</p>
                         </div>
                         <div class="px-2 small">
-                            <div class="d-flex justify-content-between mb-2 text-muted"><span>Total Hari</span><span class="fw-bold"><?php echo $h['total_hari']; ?></span></div>
-                            <div class="d-flex justify-content-between mb-2 text-success"><span>Hari Hadir</span><span class="fw-bold"><?php echo $h['hadir']; ?></span></div>
-                            <div class="d-flex justify-content-between mb-2 text-danger"><span>Hari Tidak Hadir</span><span class="fw-bold"><?php echo ($h['total_hari'] - $h['hadir']); ?></span></div>
-                            <div class="d-flex justify-content-between mb-2" style="color: #ffc107;"><span>Terlambat</span><span class="fw-bold"><?php echo $h['terlambat']; ?></span></div>
-                            <div class="d-flex justify-content-between mb-2 text-muted"><span>Izin</span><span class="fw-bold"><?php echo $h['izin']; ?></span></div>
-                            <div class="d-flex justify-content-between text-muted"><span>Alpha</span><span class="fw-bold"><?php echo $h['alpha']; ?></span></div>
+                            <div class="d-flex justify-content-between mb-2"><span>Total Hari</span><strong><?php echo $h['total_hari']; ?></strong></div>
+                            <div class="d-flex justify-content-between mb-2 text-success"><span>Hadir</span><strong><?php echo $h['hadir']; ?></strong></div>
+                            <div class="d-flex justify-content-between text-danger"><span>Alpha/Tidak Hadir</span><strong><?php echo $h['alpha'] + $h['sakit'] + $h['izin']; ?></strong></div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Pelanggaran -->
-            <div class="col-md-6 mb-4">
-                <div class="card info-card shadow-sm h-100 border-0">
-                    <div class="card-body d-flex flex-column">
+                <div class="col-md-6 mb-4">
+                    <div class="card info-card shadow-sm h-100">
                         <h5 class="fw-bold mb-4">Pelanggaran Sekolah</h5>
-                        <div class="flex-grow-1 text-center py-4">
-                            <?php if ($total_p == 0): ?>
-                                <i class="bi bi-check-circle text-success fs-1"></i>
-                                <p class="small text-muted mt-2">Tidak ada catatan pelanggaran</p>
-                            <?php else: ?>
-                                <!-- Loop pelanggaran di sini jika ada -->
-                            <?php endif; ?>
-                        </div>
-                        <div class="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                            <span class="fw-bold small">Total Pelanggaran:</span>
-                            <span class="badge bg-dark rounded-pill"><?php echo $total_p; ?></span>
+                        <div class="overflow-auto small" style="max-height: 150px;">
+                            <?php
+                            $q_p = mysqli_query($conn, "SELECT * FROM pelanggaran WHERE nisn = '$nisn_login'");
+                            if (mysqli_num_rows($q_p) > 0) {
+                                while ($p = mysqli_fetch_assoc($q_p)) {
+                                    echo "<div class='border-bottom pb-2 mb-2'><span class='fw-bold text-danger'>• " . $p['jenis_pelanggaran'] . "</span><br><small class='text-muted'>" . date('d/m/Y', strtotime($p['tanggal'])) . "</small></div>";
+                                }
+                            } else {
+                                echo "<p class='text-center text-muted my-4'>Tidak ada catatan pelanggaran.</p>";
+                            }
+                            ?>
                         </div>
                     </div>
                 </div>
             </div>
-        </div> <!-- End Row -->
-    </div> <!-- End Container -->
 
-    <!-- Bagian Komentar & Masukan Guru -->
-    <div class="card info-card shadow-sm border-0 mt-4" style="border-radius: 15px;">
-        <div class="card-header bg-light border-0 py-3" style="border-radius: 15px 15px 0 0;">
-            <h6 class="fw-bold m-0 text-dark">Komentar & Masukan Guru</h6>
-        </div>
-        <div class="card-body p-4">
-            <?php
-            $q_komentar = mysqli_query($conn, "SELECT * FROM komentar_guru WHERE nisn = '$nisn_login' ORDER BY id_komentar ASC");
-            if (mysqli_num_rows($q_komentar) > 0) {
-                while ($k = mysqli_fetch_assoc($q_komentar)) {
-            ?>
-                    <div class="d-flex align-items-start mb-4">
-                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px; flex-shrink: 0;">
-                            <i class="bi bi-person text-secondary"></i>
-                        </div>
-                        <div>
-                            <h6 class="fw-bold mb-1 small"><?php echo $k['judul_komentar']; ?></h6>
-                            <p class="text-muted small mb-0"><?php echo $k['isi_komentar']; ?></p>
-                        </div>
-                    </div>
-            <?php
+            <div class="card info-card shadow-sm border-0 mb-4">
+                <h6 class="fw-bold mb-3">Komentar & Masukan Guru</h6>
+                <?php
+                $q_k = mysqli_query($conn, "SELECT * FROM komentar_guru WHERE nisn = '$nisn_login'");
+                if (mysqli_num_rows($q_k) > 0) {
+                    while ($k = mysqli_fetch_assoc($q_k)) {
+                        echo "<div class='d-flex mb-3 align-items-start bg-white p-3 rounded shadow-sm border'>
+                            <div class='bg-light rounded-circle me-3 p-2' style='width:40px; height:40px; text-align:center;'><i class='bi bi-person'></i></div>
+                            <div><strong class='small'>" . $k['judul_komentar'] . "</strong><br><p class='text-muted small mb-0'>" . $k['isi_komentar'] . "</p></div>
+                          </div>";
+                    }
+                } else {
+                    echo "<p class='small text-muted'>Belum ada komentar dari guru.</p>";
                 }
-            } else {
-                echo "<p class='text-center text-muted small my-4'>Belum ada komentar dari guru.</p>";
-            }
-            ?>
-        </div>
-    </div>
-
-    <!-- Footer Laporan -->
-    <div class="d-flex justify-content-between mt-4 px-2 text-muted" style="font-size: 0.75rem;">
-        <span>Laporan dibuat pada: <?php echo date('d F Y'); ?></span>
-        <span>Peninjauan berikutnya: 15 Mei 2026</span>
+                ?>
+            </div>
+        <?php endif; ?>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
