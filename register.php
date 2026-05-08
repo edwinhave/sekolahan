@@ -5,23 +5,24 @@ if (isset($_POST['register'])) {
     // Menangkap data dari form
     $nisn     = mysqli_real_escape_string($conn, $_POST['nisn']);
     $nama     = mysqli_real_escape_string($conn, $_POST['nama']);
+    $email    = mysqli_real_escape_string($conn, $_POST['email']);
     $kelas    = mysqli_real_escape_string($conn, $_POST['kelas']);
     $alamat   = mysqli_real_escape_string($conn, $_POST['alamat']);
     $password = mysqli_real_escape_string($conn, $_POST['password']);
     $level    = 1; // Otomatis diset menjadi 1 untuk Siswa
 
-    // Cek apakah NISN sudah terdaftar sebelumnya
-    $cek_nisn = mysqli_query($conn, "SELECT * FROM data_siswa WHERE nisn = '$nisn'");
+    // Cek apakah NISN atau Email sudah terdaftar
+    $cek_user = mysqli_query($conn, "SELECT * FROM data_siswa WHERE nisn = '$nisn' OR email = '$email'");
 
-    if (mysqli_num_rows($cek_nisn) > 0) {
-        echo "<script>alert('NISN sudah terdaftar!'); window.location='register.php';</script>";
+    if (mysqli_num_rows($cek_user) > 0) {
+        echo "<script>alert('NISN atau Email sudah terdaftar!'); window.location='register.php';</script>";
     } else {
-        // Query Insert ke tabel data_siswa
-        $query = "INSERT INTO data_siswa (nisn, nama, kelas, alamat, password, level) 
-                  VALUES ('$nisn', '$nama', '$kelas', '$alamat', '$password', '$level')";
+        // Tambahkan kolom email ke dalam Query Insert
+        $query = "INSERT INTO data_siswa (nisn, nama, email, kelas, alamat, password, level) 
+                  VALUES ('$nisn', '$nama', '$email', '$kelas', '$alamat', '$password', '$level')";
 
         if (mysqli_query($conn, $query)) {
-            echo "<script>alert('Pendaftaran Berhasil! Silakan Login.'); window.location='login.php';</script>";
+            echo "<script>alert('Pendaftaran Berhasil!'); window.location='login.php';</script>";
         } else {
             echo "Error: " . mysqli_error($conn);
         }
@@ -75,6 +76,11 @@ if (isset($_POST['register'])) {
                     <div class="mb-3">
                         <label class="form-label">Nama Lengkap</label>
                         <input type="text" name="nama" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control" placeholder="contoh@sekolah.com" required>
                     </div>
 
                     <div class="mb-3">
