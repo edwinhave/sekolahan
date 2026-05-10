@@ -47,7 +47,7 @@ if ($level_user == '2') {
         }
 
         body {
-            background-color: #ffffff;
+            background-color: #D4EAF7;
             font-family: 'Segoe UI', sans-serif;
         }
 
@@ -83,7 +83,7 @@ if ($level_user == '2') {
         }
 
         .table thead th {
-            background-color: var(--primary-blue);
+            background-color: #64b5f6 !important;
             color: white;
             font-size: 0.85rem;
             text-align: center;
@@ -100,9 +100,9 @@ if ($level_user == '2') {
 <body>
 
     <div class="container pb-5">
-        <div class="header-panel shadow mb-4 text-center">
+        <div class="header-panel shadow mb-4 text-center" style="background-color: #64B5F6;">
             <h2 class="fw-bold m-0">Sekolah Gracia</h2>
-            <p class="m-0 opacity-75">Sistem Informasi Akademik Sekolah</p>
+            <p class=" m-0 opacity-75">Sistem Informasi Akademik Sekolah</p>
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-4 px-2">
@@ -183,7 +183,7 @@ if ($level_user == '2') {
             <div class="card border-0 shadow-sm overflow-hidden mb-4" style="border-radius: 15px;">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
-                        <thead>
+                        <thead style="background-color:#64b5f6 !important;">
                             <tr>
                                 <th class="text-start ps-4">Mata Pelajaran</th>
                                 <th>PE1</th>
@@ -194,7 +194,7 @@ if ($level_user == '2') {
                                 <th>PE6</th>
                                 <th>PTS</th>
                                 <th>ASAJ</th>
-                                <th class="avg-column text-primary">Rata-Rata</th>
+                                <th class="avg-column text-white">Rata-Rata</th>
                             </tr>
                         </thead>
                         <tbody>
