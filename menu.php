@@ -194,7 +194,7 @@ if ($level_user == '2') {
                                 <th>PE6</th>
                                 <th>PTS</th>
                                 <th>ASAJ</th>
-                                <th class="avg-column text-white">Rata-Rata</th>
+                                <th class="avg-column text-red">Rata-Rata</th>
                             </tr>
                         </thead>
                         <tbody>

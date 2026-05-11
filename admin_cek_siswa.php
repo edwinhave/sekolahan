@@ -78,7 +78,7 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 <body class="pb-5">
 
     <div class="container">
-        <div class="header-panel mb-4 d-flex justify-content-between align-items-center">
+        <div class="header-panel mb-4 d-flex justify-content-between align-items-center" style="background-color: #64B5F6;">
             <div>
                 <h4 class="fw-bold m-0">Monitoring Akademik</h4>
                 <small class="opacity-75">Panel Kontrol Guru & Admin</small>
@@ -243,8 +243,11 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
         <?php else: ?>
             <div class="text-center py-5">
-                <img src="https://illustrations.popsy.co/white/searching.svg" alt="Cari" style="width: 200px;" class="mb-4">
-                <h5 class="text-muted">Silakan pilih siswa dari dropdown di atas untuk melihat laporan lengkap.</h5>
+                <div class="mb-4">
+                    <i class="bi bi-radar text-primary" style="font-size: 6rem; opacity: 0.5;"></i>
+                </div>
+                <h5 class="text-muted fw-bold">Siap Memantau Data Siswa?</h5>
+                <p class="text-muted small">Silakan pilih nama siswa dari menu dropdown di atas<br>untuk menarik laporan akademik lengkap.</p>
             </div>
         <?php endif; ?>
     </div>
