@@ -80,8 +80,8 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
     <div class="container">
         <div class="header-panel mb-4 d-flex justify-content-between align-items-center" style="background-color: #64B5F6;">
             <div>
-                <h4 class="fw-bold m-0">Monitoring Akademik</h4>
-                <small class="opacity-75">Panel Kontrol Guru & Admin</small>
+                <h4 class="fw-bold m-0 text-white">Monitoring Akademik</h4>
+                <small class="text-white opacity-75">Panel Kontrol Guru & Admin</small>
             </div>
             <a href="menu.php" class="btn btn-outline-light btn-sm px-4">
                 <i class="bi bi-house-door me-1"></i> Dashboard
@@ -182,35 +182,57 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                 <div class="col-md-6 mb-4">
                     <div class="card info-card h-100">
                         <div class="card-body">
-                            <h6 class="fw-bold mb-4 border-bottom pb-2"><i class="bi bi-calendar-check me-2 text-success"></i>Data Kehadiran <a href="tambah_kehadiran.php?nisn=<?php echo $nisn_terpilih; ?>" class="btn btn-sm btn-outline-success">Update</a></h6>
+                            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                                <h6 class="fw-bold m-0"><i class="bi bi-calendar-check me-2 text-success"></i>Data Kehadiran</h6>
+                                <a href="tambah_kehadiran.php?nisn=<?php echo $nisn_terpilih; ?>" class="btn btn-sm btn-outline-success">Update Harian</a>
+                            </div>
 
                             <?php
-                            $q_h = mysqli_query($conn, "SELECT * FROM kehadiran WHERE nisn = '$nisn_terpilih'");
-                            $h = mysqli_fetch_assoc($q_h) ?: ['total_hari' => 0, 'hadir' => 0, 'izin' => 0, 'sakit' => 0, 'alpha' => 0, 'terlambat' => 0];
+                            // Ambil total hari efektif dan log absensi harian dari database
+                            $q_total = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih'");
+                            $total_hari = mysqli_fetch_assoc($q_total)['total'];
+
+                            $q_hadir = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Hadir'");
+                            $hadir = mysqli_fetch_assoc($q_hadir)['total'];
+
+                            $q_izin_sakit = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status IN ('Izin', 'Sakit')");
+                            $izin_sakit = mysqli_fetch_assoc($q_izin_sakit)['total'];
+
+                            $q_alpha = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Alpha'");
+                            $alpha = mysqli_fetch_assoc($q_alpha)['total'];
+
+                            // Rumus matematika persentase tingkat kehadiran
+                            $persentase = ($total_hari > 0) ? ($hadir / $total_hari) * 100 : 0;
                             ?>
+
+                            <div class="text-center mb-4">
+                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto shadow-sm" style="width: 90px; height: 90px; border: 6px solid #eef2ff;">
+                                    <span class="fw-bold fs-5 text-dark"><?php echo number_format($persentase, 1); ?>%</span>
+                                </div>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.8rem;">Tingkat Kehadiran Siswa</small>
+                            </div>
+
                             <div class="row g-3 text-center">
                                 <div class="col-4">
                                     <div class="p-2 bg-light rounded">
                                         <small class="text-muted d-block small">Hadir</small>
-                                        <span class="fw-bold text-success"><?php echo $h['hadir']; ?></span>
+                                        <span class="fw-bold text-success"><?php echo $hadir; ?></span>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="p-2 bg-light rounded">
                                         <small class="text-muted d-block small">Izin/Sakit</small>
-                                        <span class="fw-bold text-warning"><?php echo $h['izin'] + $h['sakit']; ?></span>
+                                        <span class="fw-bold text-warning"><?php echo $izin_sakit; ?></span>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="p-2 bg-light rounded">
                                         <small class="text-muted d-block small">Alpha</small>
-                                        <span class="fw-bold text-danger"><?php echo $h['alpha']; ?></span>
+                                        <span class="fw-bold text-danger"><?php echo $alpha; ?></span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-4 p-2 border rounded bg-white small">
-                                Total Hari Efektif: <strong><?php echo $h['total_hari']; ?> Hari</strong>
-                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -218,17 +240,30 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                 <div class="col-md-6 mb-4">
                     <div class="card info-card h-100">
                         <div class="card-body">
-                            <h6 class="fw-bold mb-4 border-bottom pb-2"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Catatan Pelanggaran</h6>
-                            <a href="tambah_pelanggaran.php?nisn=<?php echo $nisn_terpilih; ?>" class="btn btn-sm btn-outline-danger">+ Tambah</a>
-                            <div class="overflow-auto" style="max-height: 150px;">
+                            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                                <h6 class="fw-bold m-0"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Catatan Pelanggaran</h6>
+                                <a href="tambah_pelanggaran.php?nisn=<?php echo $nisn_terpilih; ?>" class="btn btn-sm btn-outline-danger">+ Tambah</a>
+                            </div>
+
+                            <div class="overflow-auto" style="max-height: 180px;">
                                 <?php
-                                $q_p = mysqli_query($conn, "SELECT * FROM pelanggaran WHERE nisn = '$nisn_terpilih'");
+                                $q_p = mysqli_query($conn, "SELECT * FROM pelanggaran WHERE nisn = '$nisn_terpilih' ORDER BY tanggal DESC");
                                 if (mysqli_num_rows($q_p) > 0) {
                                     while ($p = mysqli_fetch_assoc($q_p)) {
                                         echo "<div class='d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded'>
-                                            <span class='small'>" . $p['jenis_pelanggaran'] . "</span>
-                                            <span class='badge bg-danger' style='font-size:0.6rem;'>" . date('d M Y', strtotime($p['tanggal'])) . "</span>
-                                          </div>";
+                                                <div class='me-2'>
+                                                    <span class='small d-block fw-bold'>" . $p['jenis_pelanggaran'] . "</span>
+                                                    <small class='text-muted' style='font-size: 0.75rem;'>" . date('d M Y', strtotime($p['tanggal'])) . "</small>
+                                                </div>
+                                                <div class='d-flex gap-1'>
+                                                    <a href='edit_pelanggaran.php?id=" . $p['id_pelanggaran'] . "' class='btn btn-sm btn-outline-warning py-0 px-2' style='font-size: 0.75rem;' title='Edit'>
+                                                        <i class='bi bi-pencil'></i>
+                                                    </a>
+                                                    <a href='hapus_pelanggaran.php?id=" . $p['id_pelanggaran'] . "' class='btn btn-sm btn-outline-danger py-0 px-2' style='font-size: 0.75rem;' onclick='return confirm(\"Apakah Anda yakin ingin menghapus catatan pelanggaran ini?\")' title='Hapus'>
+                                                        <i class='bi bi-trash'></i>
+                                                    </a>
+                                                </div>
+                                              </div>";
                                     }
                                 } else {
                                     echo "<div class='text-center py-4 text-muted small italic'>Tidak ada catatan pelanggaran untuk siswa ini.</div>";
@@ -239,7 +274,6 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                     </div>
                 </div>
             </div>
-
 
         <?php else: ?>
             <div class="text-center py-5">
