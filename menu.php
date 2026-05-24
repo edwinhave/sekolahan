@@ -39,6 +39,8 @@ if ($level_user == '2') {
     <title>Dashboard - Sekolah Gracia</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
     <style>
         :root {
             --dark-header: #0a0a1a;
@@ -49,6 +51,8 @@ if ($level_user == '2') {
         body {
             background-color: #D4EAF7;
             font-family: 'Segoe UI', sans-serif;
+            overflow-x: hidden;
+            /* Mencegah horizontal scroll akibat animasi AOS */
         }
 
         .header-panel {
@@ -100,12 +104,12 @@ if ($level_user == '2') {
 <body>
 
     <div class="container pb-5">
-        <div class="header-panel shadow mb-4 text-center" style="background-color: #64B5F6;">
+        <div class="header-panel shadow mb-4 text-center" style="background-color: #64B5F6;" data-aos="zoom-in" data-aos-duration="800">
             <h2 class="fw-bold m-0">Sekolah Gracia</h2>
             <p class=" m-0 opacity-75">Sistem Informasi Akademik Sekolah</p>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-4 px-2">
+        <div class="d-flex justify-content-between align-items-center mb-4 px-2" data-aos="fade-down" data-aos-delay="200">
             <div>
                 <span class="text-muted">Selamat Datang, </span><span class="fw-bold"><?php echo $user_data['nama']; ?></span>
                 <span class="badge bg-primary ms-1"><?php echo ($level_user == '2') ? 'Guru / Admin' : 'Siswa'; ?></span>
@@ -114,22 +118,22 @@ if ($level_user == '2') {
         </div>
 
         <?php if ($level_user == '2'): ?>
-            <div class="card info-card shadow-sm mb-4">
+            <div class="card info-card shadow-sm mb-4" data-aos="fade-up" data-aos-duration="800">
                 <h5 class="fw-bold mb-4 small text-uppercase text-muted">Informasi Admin / Sekolah</h5>
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-3" data-aos="zoom-in-up" data-aos-delay="100">
                         <div class="p-3 bg-white rounded shadow-sm border-start border-primary border-4">
                             <div class="text-muted small">Total Siswa Terdaftar</div>
                             <div class="h4 fw-bold mb-0"><?php echo $total_siswa; ?> Siswa</div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-3" data-aos="zoom-in-up" data-aos-delay="200">
                         <div class="p-3 bg-white rounded shadow-sm border-start border-success border-4">
                             <div class="text-muted small">Mata Pelajaran Aktif</div>
                             <div class="h4 fw-bold mb-0"><?php echo $total_mapel; ?> Pelajaran</div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-3" data-aos="zoom-in-up" data-aos-delay="300">
                         <div class="p-3 bg-white rounded shadow-sm border-start border-warning border-4">
                             <div class="text-muted small">Rata-rata Nilai Sekolah</div>
                             <div class="h4 fw-bold mb-0"><?php echo $rata_rata_sekolah; ?> / 100</div>
@@ -138,23 +142,23 @@ if ($level_user == '2') {
                 </div>
             </div>
 
-            <h5 class="fw-bold mb-3 px-2">Menu Kelola Data</h5>
+            <h5 class="fw-bold mb-3 px-2" data-aos="fade-right">Menu Kelola Data</h5>
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-4" data-aos="flip-left" data-aos-delay="100">
                     <a href="admin_cek_siswa.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
                         <i class="bi bi-search fs-2 text-primary mb-2"></i>
                         <h6 class="fw-bold text-dark mb-1">Monitor Siswa</h6>
                         <small class="text-muted">Cek nilai & absensi per murid</small>
                     </a>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4" data-aos="flip-left" data-aos-delay="200">
                     <a href="tambah_nilai.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
                         <i class="bi bi-plus-circle fs-2 text-success mb-2"></i>
                         <h6 class="fw-bold text-dark mb-1">Input Nilai</h6>
                         <small class="text-muted">Masukkan rincian nilai ujian</small>
                     </a>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4" data-aos="flip-left" data-aos-delay="300">
                     <a href="tambah_komentar.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
                         <i class="bi bi-chat-dots fs-2 text-info mb-2"></i>
                         <h6 class="fw-bold text-dark mb-1">Beri Komentar</h6>
@@ -164,7 +168,7 @@ if ($level_user == '2') {
             </div>
 
         <?php else: ?>
-            <div class="card info-card shadow-sm mb-4">
+            <div class="card info-card shadow-sm mb-4" data-aos="fade-up" data-aos-duration="700">
                 <h5 class="fw-bold mb-4 small text-uppercase text-muted">Informasi Siswa</h5>
                 <div class="row small">
                     <div class="col-md-6">
@@ -178,8 +182,8 @@ if ($level_user == '2') {
                 </div>
             </div>
 
-            <h5 class="fw-bold mb-3 px-2">Prestasi Akademik</h5>
-            <div class="card border-0 shadow-sm overflow-hidden mb-4" style="border-radius: 15px;">
+            <h5 class="fw-bold mb-3 px-2" data-aos="fade-right">Prestasi Akademik</h5>
+            <div class="card border-0 shadow-sm overflow-hidden mb-4" style="border-radius: 15px;" data-aos="zoom-in-up" data-aos-duration="800">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
                         <thead>
@@ -217,7 +221,7 @@ if ($level_user == '2') {
                 </div>
             </div>
 
-            <h5 class="fw-bold mb-3 px-2">Kehadiran</h5>
+            <h5 class="fw-bold mb-3 px-2" data-aos="fade-right">Kehadiran</h5>
             <?php
             // Logika hitung log absensi harian murid
             $q_total = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_login'");
@@ -235,7 +239,7 @@ if ($level_user == '2') {
             $persen = ($total_hari > 0) ? ($hadir / $total_hari) * 100 : 0;
             ?>
             <div class="row g-3 mb-4">
-                <div class="col-md-4">
+                <div class="col-md-4" data-aos="zoom-in-right" data-aos-delay="100">
                     <div class="card info-card shadow-sm text-center h-100 d-flex flex-column justify-content-center py-4">
                         <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto shadow-sm mb-3" style="width: 80px; height: 80px; border: 5px solid #d1e7dd;">
                             <span class="fw-bold text-success fs-5"><?php echo number_format($persen, 1); ?>%</span>
@@ -245,7 +249,7 @@ if ($level_user == '2') {
                     </div>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-4" data-aos="zoom-in-up" data-aos-delay="200">
                     <div class="card info-card shadow-sm text-center h-100 d-flex flex-column justify-content-center py-4">
                         <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto shadow-sm mb-3" style="width: 80px; height: 80px; border: 5px solid #fff3cd;">
                             <i class="bi bi-envelope-paper text-warning fs-3"></i>
@@ -255,7 +259,7 @@ if ($level_user == '2') {
                     </div>
                 </div>
 
-                <div class="col-md-4">
+                <div class="col-md-4" data-aos="zoom-in-left" data-aos-delay="300">
                     <div class="card info-card shadow-sm text-center h-100 d-flex flex-column justify-content-center py-4">
                         <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto shadow-sm mb-3" style="width: 80px; height: 80px; border: 5px solid #f8d7da;">
                             <i class="bi bi-x-circle text-danger fs-3"></i>
@@ -267,7 +271,7 @@ if ($level_user == '2') {
             </div>
 
             <div class="row">
-                <div class="col-12 mb-4">
+                <div class="col-12 mb-4" data-aos="fade-up" data-aos-duration="600">
                     <div class="card info-card shadow-sm">
                         <h5 class="fw-bold mb-4">Pelanggaran Sekolah</h5>
                         <div class="overflow-auto small" style="max-height: 150px;">
@@ -286,13 +290,13 @@ if ($level_user == '2') {
                 </div>
             </div>
 
-            <div class="card info-card shadow-sm border-0 mb-4">
+            <div class="card info-card shadow-sm border-0 mb-4" data-aos="fade-up" data-aos-duration="600" data-aos-delay="100">
                 <h6 class="fw-bold mb-3">Komentar & Masukan Guru</h6>
                 <?php
                 $q_k = mysqli_query($conn, "SELECT * FROM komentar_guru WHERE nisn = '$nisn_login'");
                 if (mysqli_num_rows($q_k) > 0) {
                     while ($k = mysqli_fetch_assoc($q_k)) {
-                        echo "<div class='d-flex mb-3 align-items-start bg-white p-3 rounded shadow-sm border',
+                        echo "<div class='d-flex mb-3 align-items-start bg-white p-3 rounded shadow-sm border'>
                             <div class='bg-light rounded-circle me-3 p-2' style='width:40px; height:40px; text-align:center;'><i class='bi bi-person'></i></div>
                             <div><strong class='small'>" . $k['judul_komentar'] . "</strong><br><p class='text-muted small mb-0'>" . $k['isi_komentar'] . "</p></div>
                           </div>";
@@ -306,6 +310,12 @@ if ($level_user == '2') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({
+            once: true // Animasi hanya berjalan 1 kali saat di-scroll pertama kali agar tidak mengganggu fokus presentasi
+        });
+    </script>
 </body>
 
 </html>
