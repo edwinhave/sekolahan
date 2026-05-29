@@ -1,14 +1,43 @@
+<?php
+session_start();
+include 'koneksi.php';
+
+// Jika sudah login, langsung lempar ke menu
+if (isset($_SESSION['nisn'])) {
+    header("location:menu.php");
+    exit();
+}
+
+$error = "";
+
+if (isset($_POST['login'])) {
+    $identifier = mysqli_real_escape_string($conn, $_POST['identifier']);
+    $password = mysqli_real_escape_string($conn, $_POST['password']);
+
+    // Logika Autentikasi Ganda (Bisa pakai NISN atau Email)
+    $query = mysqli_query($conn, "SELECT * FROM data_siswa WHERE (nisn = '$identifier' OR email = '$identifier') AND password = '$password'");
+
+    if (mysqli_num_rows($query) > 0) {
+        $row = mysqli_fetch_assoc($query);
+        $_SESSION['nisn'] = $row['nisn'];
+        $_SESSION['level'] = $row['level']; // 2 = Admin/Guru, 1 = Siswa
+        header("location:menu.php");
+        exit();
+    } else {
+        $error = "Identitas atau password salah!";
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="id">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login E-Rapor Futuristik</title>
+    <title>Login - Sekolah Gracia</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link rel="icon" type="image/x-icon" href="images/lgo.png">
-
     <style>
         body,
         html {
@@ -18,185 +47,196 @@
             height: 100%;
             overflow: hidden;
             font-family: 'Segoe UI', sans-serif;
+            /* Mengubah background menjadi gradasi biru muda cerah */
+            background: linear-gradient(135deg, #A8DADC 0%, #457B9D 100%);
         }
 
-        /* Canvas container */
         #canvas-container {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: #050505;
-            z-index: -1;
-        }
-
-        .login-wrapper {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
             z-index: 1;
         }
 
-        /* Login Card Custom Styling */
-        .login-card {
-            background: rgba(255, 255, 255, 0.07);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 420px;
-            color: white;
-            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        .login-wrapper {
+            position: relative;
+            z-index: 2;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* Hover Effect on Card */
-        .login-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(100, 181, 246, 0.4);
-            /* Warna biru custom Anda */
+        /* Glassmorphism Cerah */
+        .login-card {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        .brand-title {
+            color: #1D3557;
+            font-weight: 800;
+            letter-spacing: 0.5px;
         }
 
         .form-control {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.5);
             border-radius: 10px;
+            padding: 12px;
+            color: #1D3557;
         }
 
         .form-control:focus {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            border-color: #64b5f6;
-            /* Warna biru custom */
-            box-shadow: 0 0 10px rgba(100, 181, 246, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+            border-color: #457B9D;
+            box-shadow: 0 0 0 0.25rem rgba(69, 123, 157, 0.25);
+            color: #1D3557;
+        }
+
+        .form-control::placeholder {
+            color: #6c757d;
         }
 
         .btn-login {
-            background: #64b5f6;
+            background: #E63946;
             border: none;
             border-radius: 10px;
-            font-weight: 600;
             padding: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
             transition: all 0.3s ease;
         }
 
         .btn-login:hover {
-            background: #42a5f5;
-            transform: scale(1.02);
-        }
-
-        .text-muted-custom {
-            color: rgba(255, 255, 255, 0.6) !important;
+            background: #C12735;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
         }
     </style>
 </head>
 
 <body>
 
+    <!-- Container untuk Animasi Partikel 3D -->
     <div id="canvas-container"></div>
 
-    <div class="login-wrapper">
-        <div class="card login-card shadow-lg">
-            <div class="card-body p-5">
-                <div class="text-center mb-4">
-                    <div class="display-5 mb-2"><i class="bi bi-mortarboard-fill"></i></div>
-                    <h3 class="fw-bold">E-Rapor Digital</h3>
-                    <p class="text-muted-custom small">Masuk untuk melihat laporan belajar</p>
+    <div class="login-wrapper container">
+        <div class="login-card text-center">
+            <div class="mb-4">
+                <div class="bg-white rounded-circle d-flex align-items-center justify-content-center mx-auto shadow-sm" style="width: 70px; height: 70px;">
+                    <i class="bi bi-mortarboard-fill fs-2 text-primary"></i>
                 </div>
-
-                <form action="validasi.php" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label small">Email atau NISN</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-transparent border-end-0 text-white"><i class="bi bi-person"></i></span>
-                            <input type="text" name="user_input" class="form-control border-start-0" placeholder="Masukkan ID" required>
-                        </div>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label small">Password</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-transparent border-end-0 text-white"><i class="bi bi-lock"></i></span>
-                            <input type="password" name="password" class="form-control border-start-0" placeholder="••••••••" required>
-                        </div>
-                    </div>
-                    <div class="d-grid gap-2">
-                        <button type="submit" name="login" class="btn btn-login text-white">MASUK</button>
-                    </div>
-                </form>
-
-                <div class="mt-4 text-center">
-                    <small class="text-muted-custom">Belum punya akun? <a href="register.php" class="text-white text-decoration-none fw-bold">Daftar</a></small>
-                </div>
+                <h3 class="brand-title mt-3 mb-1">Sekolah Gracia</h3>
+                <p class="text-muted small">Sistem Informasi Akademik & E-Rapor</p>
             </div>
+
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-danger py-2 small" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo $error; ?>
+                </div>
+            <?php endif; ?>
+
+            <form action="" method="POST">
+                <div class="mb-3 text-start">
+                    <label class="form-label small fw-bold text-dark">NISN / Email Sekolah</label>
+                    <input type="text" name="identifier" class="form-control" placeholder="Masukkan NISN atau Email" required autocomplete="off">
+                </div>
+                <div class="mb-4 text-start">
+                    <label class="form-label small fw-bold text-dark">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+                <button type="submit" name="login" class="btn btn-login btn-danger w-100 text-white shadow-sm mb-2">Masuk Ke Sistem</button>
+            </form>
         </div>
     </div>
 
+    <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
-        // --- THREE.JS ANIMATION CODE ---
-        let scene, camera, renderer, stars, starGeo;
+        // --- KONFIGURASI ANIMASI PARTIKEL THREE.JS YANG CERAH ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
 
-        function init() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
-            camera.position.z = 1;
-            camera.rotation.x = Math.PI / 2;
+        // Kamera
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
 
-            renderer = new THREE.WebGLRenderer();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
+        // Renderer dengan alpha true agar background gradasi CSS tetap tembus
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,
+            antialias: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
 
-            starGeo = new THREE.BufferGeometry();
-            let starCoords = [];
-            for (let i = 0; i < 6000; i++) {
-                starCoords.push(Math.random() * 600 - 300);
-                starCoords.push(Math.random() * 600 - 300);
-                starCoords.push(Math.random() * 600 - 300);
-            }
-            starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
+        // Membuat Partikel Bintang (Geometri & Material)
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 1200; // Jumlah partikel bintang
 
-            let sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
-            let starMaterial = new THREE.PointsMaterial({
-                color: 0x64b5f6, // Warna biru custom Anda
-                size: 0.7,
-                map: sprite,
-                transparent: true
-            });
+        const posArray = new Float32Array(particlesCount * 3);
 
-            stars = new THREE.Points(starGeo, starMaterial);
-            scene.add(stars);
-
-            animate();
+        for (let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 10;
         }
 
-        function animate() {
-            stars.rotation.y += 0.002;
-            renderer.render(scene, camera);
-            requestAnimationFrame(animate);
-        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 
-        // Interactive Hover - Mouse Move Effect
-        document.addEventListener('mousemove', (e) => {
-            let mouseX = e.clientX / window.innerWidth - 0.5;
-            let mouseY = e.clientY / window.innerHeight - 0.5;
-            stars.rotation.x = mouseY * 0.5;
-            stars.rotation.z = mouseX * 0.5;
+        // Tekstur lingkaran halus untuk partikel bintang
+        const pMaterial = new THREE.PointsMaterial({
+            size: 0.03,
+            color: 0xffffff, // Partikel bintang berwarna putih berkilau
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
         });
 
+        const particleSystem = new THREE.Points(particlesGeometry, pMaterial);
+        scene.add(particleSystem);
+
+        // Interaktivitas: Mouse Tracking
+        let mouseX = 0;
+        let mouseY = 0;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth) - 0.5;
+            mouseY = (event.clientY / window.innerHeight) - 0.5;
+        });
+
+        // Loop Animasi
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            // Perputaran konstan partikel
+            particleSystem.rotation.y += 0.001;
+            particleSystem.rotation.x += 0.0005;
+
+            // Efek interaksi kamera mengikuti pergerakan kursor mouse
+            camera.position.x += (mouseX * 2 - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY * 2 - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            renderer.render(scene, camera);
+        };
+
+        animate();
+
+        // Handle ukuran browser berubah (Responsif)
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
-
-        init();
     </script>
-
 </body>
 
 </html>

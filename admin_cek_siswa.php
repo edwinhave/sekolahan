@@ -6,17 +6,14 @@ if (!isset($_SESSION['nisn']) || $_SESSION['level'] != '2') {
 }
 include 'koneksi.php';
 
-// Menangkap NISN yang dipilih dari dropdown
-$nisn_terpilih = isset($_GET['nisn']) ? mysqli_real_escape_string($conn, $_GET['nisn']) : '';
+$nisn_terpilih = isset($_GET['nisn']) ? mysqli_real_escape_string($conn, trim($_GET['nisn'])) : '';
 
-// Data Siswa Terpilih
 $user_data = null;
-if ($nisn_terpilih) {
-    $q_user = mysqli_query($conn, "SELECT * FROM data_siswa WHERE nisn = '$nisn_terpilih'");
+if (!empty($nisn_terpilih)) {
+    $q_user = mysqli_query($conn, "SELECT * FROM data_siswa WHERE nisn = '$nisn_terpilih' AND level = '1'");
     $user_data = mysqli_fetch_assoc($q_user);
 }
 
-// Statistik Singkat untuk Header Admin
 $q_count_siswa = mysqli_query($conn, "SELECT COUNT(*) as total FROM data_siswa WHERE level = '1'");
 $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 ?>
@@ -30,6 +27,9 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
     <title>Admin - Monitoring Siswa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
     <style>
         :root {
             --dark-header: #0a0a1a;
@@ -72,6 +72,37 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
         .btn-edit:hover {
             background-color: #e0a800;
         }
+
+        /* Styling Kustom Kecerahan komponen Select2 agar menyatu dengan Bootstrap 5 */
+        .select2-container--default .select2-selection--single {
+            height: 46px !important;
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 10px !important;
+            background-color: #fff;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #212529 !important;
+            line-height: 28px !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 44px !important;
+        }
+
+        .select2-dropdown {
+            border: 1px solid #dee2e6 !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+            border: 1px solid #dee2e6 !important;
+            border-radius: 6px !important;
+            padding: 6px 10px !important;
+        }
     </style>
 </head>
 
@@ -93,8 +124,9 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                 <form action="" method="GET" class="row g-3 align-items-end">
                     <div class="col-md-8">
                         <label class="form-label fw-bold small text-muted text-uppercase">Pilih Siswa</label>
-                        <select name="nisn" class="form-select shadow-sm" onchange="this.form.submit()" style="border-radius: 10px;">
-                            <option value="">-- Pilih Nama atau NISN Siswa --</option>
+
+                        <select name="nisn" id="select-siswa" class="form-select shadow-sm" style="width: 100%;">
+                            <option value="">-- Ketik Nama atau NISN Siswa --</option>
                             <?php
                             $siswa_list = mysqli_query($conn, "SELECT nisn, nama FROM data_siswa WHERE level='1' ORDER BY nama ASC");
                             while ($s = mysqli_fetch_assoc($siswa_list)) {
@@ -105,8 +137,8 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-2 bg-light rounded text-center border">
-                            <small class="text-muted d-block">Total Siswa Terdaftar</small>
+                        <div class="p-2 bg-light rounded text-center border" style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 10px !important;">
+                            <small class="text-muted">Total Siswa:</small>
                             <span class="fw-bold"><?php echo $total_siswa; ?> Orang</span>
                         </div>
                     </div>
@@ -188,7 +220,6 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                             </div>
 
                             <?php
-                            // Ambil total hari efektif dan log absensi harian dari database
                             $q_total = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih'");
                             $total_hari = mysqli_fetch_assoc($q_total)['total'];
 
@@ -201,7 +232,6 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                             $q_alpha = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Alpha'");
                             $alpha = mysqli_fetch_assoc($q_alpha)['total'];
 
-                            // Rumus matematika persentase tingkat kehadiran
                             $persentase = ($total_hari > 0) ? ($hadir / $total_hari) * 100 : 0;
                             ?>
 
@@ -281,12 +311,31 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                     <i class="bi bi-radar text-primary" style="font-size: 6rem; opacity: 0.5;"></i>
                 </div>
                 <h5 class="text-muted fw-bold">Siap Memantau Data Siswa?</h5>
-                <p class="text-muted small">Silakan pilih nama siswa dari menu dropdown di atas<br>untuk menarik laporan akademik lengkap.</p>
+                <p class="text-muted small">Silakan pilih nama atau ketik NISN siswa pada searchbox di atas<br>untuk memuat rincian laporan akademik lengkap.</p>
             </div>
         <?php endif; ?>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Inisialisasi plugin Select2 pada element select
+            $('#select-siswa').select2({
+                placeholder: "-- Ketik Nama atau NISN Siswa --",
+                allowClear: true
+            });
+
+            // Trigger submit otomatis ketika item di dalam dropdown dipilih
+            $('#select-siswa').on('change', function() {
+                if ($(this).val() !== "") {
+                    this.form.submit();
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>
