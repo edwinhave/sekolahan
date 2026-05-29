@@ -7,6 +7,8 @@ if (!isset($_SESSION['nisn']) || $_SESSION['level'] != '2') {
 include 'koneksi.php';
 
 $nisn_terpilih = isset($_GET['nisn']) ? mysqli_real_escape_string($conn, trim($_GET['nisn'])) : '';
+// Menangkap parameter semester, default ke Ganjil jika belum dipilih
+$semester_terpilih = isset($_GET['semester']) ? mysqli_real_escape_string($conn, $_GET['semester']) : 'Ganjil';
 
 $user_data = null;
 if (!empty($nisn_terpilih)) {
@@ -27,7 +29,6 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
     <title>Admin - Monitoring Siswa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
     <style>
@@ -73,13 +74,12 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
             background-color: #e0a800;
         }
 
-        /* Styling Kustom Kecerahan komponen Select2 agar menyatu dengan Bootstrap 5 */
+        /* Select2 Style Alignment */
         .select2-container--default .select2-selection--single {
             height: 46px !important;
             padding: 8px 12px;
             border: 1px solid #dee2e6;
             border-radius: 10px !important;
-            background-color: #fff;
         }
 
         .select2-container--default .select2-selection--single .select2-selection__rendered {
@@ -89,19 +89,6 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 44px !important;
-        }
-
-        .select2-dropdown {
-            border: 1px solid #dee2e6 !important;
-            border-radius: 10px !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            overflow: hidden;
-        }
-
-        .select2-container--default .select2-search--dropdown .select2-search__field {
-            border: 1px solid #dee2e6 !important;
-            border-radius: 6px !important;
-            padding: 6px 10px !important;
         }
     </style>
 </head>
@@ -121,12 +108,11 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
         <div class="card info-card mb-4">
             <div class="card-body p-4">
-                <form action="" method="GET" class="row g-3 align-items-end">
-                    <div class="col-md-8">
+                <form action="" method="GET" id="form-filter" class="row g-3 align-items-end">
+                    <div class="col-md-5">
                         <label class="form-label fw-bold small text-muted text-uppercase">Pilih Siswa</label>
-
                         <select name="nisn" id="select-siswa" class="form-select shadow-sm" style="width: 100%;">
-                            <option value="">-- Ketik Nama atau NISN Siswa --</option>
+                            <option value="">-- Ketik Nama atau NISN --</option>
                             <?php
                             $siswa_list = mysqli_query($conn, "SELECT nisn, nama FROM data_siswa WHERE level='1' ORDER BY nama ASC");
                             while ($s = mysqli_fetch_assoc($siswa_list)) {
@@ -136,9 +122,18 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                             ?>
                         </select>
                     </div>
+
                     <div class="col-md-4">
-                        <div class="p-2 bg-light rounded text-center border" style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 10px !important;">
-                            <small class="text-muted">Total Siswa:</small>
+                        <label class="form-label fw-bold small text-muted text-uppercase">Periode Semester</label>
+                        <select name="semester" id="select-semester" class="form-select shadow-sm" style="height: 46px; border-radius: 10px;">
+                            <option value="Ganjil" <?php echo ($semester_terpilih == 'Ganjil') ? 'selected' : ''; ?>>Semester Ganjil</option>
+                            <option value="Genap" <?php echo ($semester_terpilih == 'Genap') ? 'selected' : ''; ?>>Semester Genap</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="p-2 bg-light rounded text-center border" style="height: 46px; display: flex; align-items: center; justify-content: center; border-radius: 10px !important;">
+                            <small class="text-muted me-2">Total Siswa:</small>
                             <span class="fw-bold"><?php echo $total_siswa; ?> Orang</span>
                         </div>
                     </div>
@@ -147,7 +142,6 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
         </div>
 
         <?php if ($user_data): ?>
-
             <div class="alert alert-white shadow-sm border-0 mb-4 d-flex justify-content-between align-items-center" style="border-radius: 15px; background: white;">
                 <div class="d-flex align-items-center">
                     <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
@@ -155,10 +149,9 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                     </div>
                     <div>
                         <h5 class="fw-bold m-0"><?php echo $user_data['nama']; ?></h5>
-                        <small class="text-muted">NISN: <?php echo $user_data['nisn']; ?> | Kelas: <?php echo $user_data['kelas']; ?></small>
+                        <small class="text-muted">NISN: <?php echo $user_data['nisn']; ?> | Kelas: <?php echo $user_data['kelas']; ?> | <span class="badge bg-dark">Semester <?php echo $semester_terpilih; ?></span></small>
                     </div>
                 </div>
-                <!-- Tombol Cetak Sisi Guru / Wali Kelas -->
                 <a href="cetak.php?nisn=<?php echo $nisn_terpilih; ?>" target="_blank" class="btn btn-outline-primary shadow-sm px-4 rounded-pill">
                     <i class="bi bi-printer me-1"></i> Cetak Rapor
                 </a>
@@ -166,7 +159,7 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
             <div class="card info-card mb-4 overflow-hidden">
                 <div class="card-header bg-white py-3 border-0">
-                    <h6 class="fw-bold m-0"><i class="bi bi-trophy me-2 text-primary"></i>Rincian Nilai Akademik</h6>
+                    <h6 class="fw-bold m-0"><i class="bi bi-trophy me-2 text-primary"></i>Rincian Nilai Akademik - Semester <?php echo $semester_terpilih; ?></h6>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
@@ -186,7 +179,8 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                         </thead>
                         <tbody>
                             <?php
-                            $q_nilai = mysqli_query($conn, "SELECT n.*, m.matapelajaran FROM tabel_nilai n JOIN mata_pelajaran m ON n.id_matapelajaran = m.id_matapelajaran WHERE n.nisn = '$nisn_terpilih'");
+                            // Query menyaring data berdasarkan $nisn_terpilih DAN $semester_terpilih
+                            $q_nilai = mysqli_query($conn, "SELECT n.*, m.matapelajaran FROM tabel_nilai n JOIN mata_pelajaran m ON n.id_matapelajaran = m.id_matapelajaran WHERE n.nisn = '$nisn_terpilih' AND n.semester = '$semester_terpilih'");
                             if (mysqli_num_rows($q_nilai) > 0) {
                                 while ($n = mysqli_fetch_assoc($q_nilai)):
                             ?>
@@ -209,7 +203,7 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                             <?php
                                 endwhile;
                             } else {
-                                echo "<tr><td colspan='10' class='text-center py-5 text-muted'>Siswa ini belum memiliki data nilai.</td></tr>";
+                                echo "<tr><td colspan='10' class='text-center py-5 text-muted'>Siswa tidak memiliki data nilai di Semester " . $semester_terpilih . ".</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -222,21 +216,22 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                     <div class="card info-card h-100">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
-                                <h6 class="fw-bold m-0"><i class="bi bi-calendar-check me-2 text-success"></i>Data Kehadiran</h6>
+                                <h6 class="fw-bold m-0"><i class="bi bi-calendar-check me-2 text-success"></i>Kehadiran (Semester <?php echo $semester_terpilih; ?>)</h6>
                                 <a href="tambah_kehadiran.php?nisn=<?php echo $nisn_terpilih; ?>" class="btn btn-sm btn-outline-success">Update Harian</a>
                             </div>
 
                             <?php
-                            $q_total = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih'");
+                            $q_total = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND semester = '$semester_terpilih'");
                             $total_hari = mysqli_fetch_assoc($q_total)['total'];
 
-                            $q_hadir = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Hadir'");
+                            $q_hadir = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Hadir' AND semester = '$semester_terpilih'");
                             $hadir = mysqli_fetch_assoc($q_hadir)['total'];
 
-                            $q_izin_sakit = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status IN ('Izin', 'Sakit')");
+                            $q_izin_sakit = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status IN ('Izin', 'Sakit') AND semester = '$semester_terpilih'");
                             $izin_sakit = mysqli_fetch_assoc($q_izin_sakit)['total'];
 
-                            $q_alpha = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Alpha'");
+                            $q_alpha = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_terpilih' AND status = 'Alpha' AND semester = '$semester_terpilih'");
+
                             $alpha = mysqli_fetch_assoc($q_alpha)['total'];
 
                             $persentase = ($total_hari > 0) ? ($hadir / $total_hari) * 100 : 0;
@@ -251,25 +246,15 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
                             <div class="row g-3 text-center">
                                 <div class="col-4">
-                                    <div class="p-2 bg-light rounded">
-                                        <small class="text-muted d-block small">Hadir</small>
-                                        <span class="fw-bold text-success"><?php echo $hadir; ?></span>
-                                    </div>
+                                    <div class="p-2 bg-light rounded"><small class="text-muted d-block small">Hadir</small><span class="fw-bold text-success"><?php echo $hadir; ?></span></div>
                                 </div>
                                 <div class="col-4">
-                                    <div class="p-2 bg-light rounded">
-                                        <small class="text-muted d-block small">Izin/Sakit</small>
-                                        <span class="fw-bold text-warning"><?php echo $izin_sakit; ?></span>
-                                    </div>
+                                    <div class="p-2 bg-light rounded"><small class="text-muted d-block small">Izin/Sakit</small><span class="fw-bold text-warning"><?php echo $izin_sakit; ?></span></div>
                                 </div>
                                 <div class="col-4">
-                                    <div class="p-2 bg-light rounded">
-                                        <small class="text-muted d-block small">Alpha</small>
-                                        <span class="fw-bold text-danger"><?php echo $alpha; ?></span>
-                                    </div>
+                                    <div class="p-2 bg-light rounded"><small class="text-muted d-block small">Alpha</small><span class="fw-bold text-danger"><?php echo $alpha; ?></span></div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>
@@ -293,17 +278,13 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
                                                     <small class='text-muted' style='font-size: 0.75rem;'>" . date('d M Y', strtotime($p['tanggal'])) . "</small>
                                                 </div>
                                                 <div class='d-flex gap-1'>
-                                                    <a href='edit_pelanggaran.php?id=" . $p['id_pelanggaran'] . "' class='btn btn-sm btn-outline-warning py-0 px-2' style='font-size: 0.75rem;' title='Edit'>
-                                                        <i class='bi bi-pencil'></i>
-                                                    </a>
-                                                    <a href='hapus_pelanggaran.php?id=" . $p['id_pelanggaran'] . "' class='btn btn-sm btn-outline-danger py-0 px-2' style='font-size: 0.75rem;' onclick='return confirm(\"Apakah Anda yakin ingin menghapus catatan pelanggaran ini?\")' title='Hapus'>
-                                                        <i class='bi bi-trash'></i>
-                                                    </a>
+                                                    <a href='edit_pelanggaran.php?id=" . $p['id_pelanggaran'] . "' class='btn btn-sm btn-outline-warning py-0 px-2'><i class='bi bi-pencil'></i></a>
+                                                    <a href='hapus_pelanggaran.php?id=" . $p['id_pelanggaran'] . "' class='btn btn-sm btn-outline-danger py-0 px-2' onclick='return confirm(\"Hapus?\")'><i class='bi bi-trash'></i></a>
                                                 </div>
                                               </div>";
                                     }
                                 } else {
-                                    echo "<div class='text-center py-4 text-muted small italic'>Tidak ada catatan pelanggaran untuk siswa ini.</div>";
+                                    echo "<div class='text-center py-4 text-muted small italic'>Tidak ada catatan pelanggaran.</div>";
                                 }
                                 ?>
                             </div>
@@ -314,11 +295,9 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
         <?php else: ?>
             <div class="text-center py-5">
-                <div class="mb-4">
-                    <i class="bi bi-radar text-primary" style="font-size: 6rem; opacity: 0.5;"></i>
-                </div>
+                <div class="mb-4"><i class="bi bi-radar text-primary" style="font-size: 6rem; opacity: 0.5;"></i></div>
                 <h5 class="text-muted fw-bold">Siap Memantau Data Siswa?</h5>
-                <p class="text-muted small">Silakan pilih nama atau ketik NISN siswa pada searchbox di atas<br>untuk memuat rincian laporan akademik lengkap.</p>
+                <p class="text-muted small">Silakan pilih nama atau ketik NISN siswa pada searchbox di atas.</p>
             </div>
         <?php endif; ?>
     </div>
@@ -329,16 +308,15 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
 
     <script>
         $(document).ready(function() {
-            // Inisialisasi plugin Select2 pada element select
             $('#select-siswa').select2({
-                placeholder: "-- Ketik Nama atau NISN Siswa --",
+                placeholder: "-- Ketik Nama atau NISN --",
                 allowClear: true
             });
 
-            // Trigger submit otomatis ketika item di dalam dropdown dipilih
-            $('#select-siswa').on('change', function() {
-                if ($(this).val() !== "") {
-                    this.form.submit();
+            // Otomatis reload halaman jika siswa atau semester diubah
+            $('#select-siswa, #select-semester').on('change', function() {
+                if ($('#select-siswa').val() !== "") {
+                    $('#form-filter').submit();
                 }
             });
         });
