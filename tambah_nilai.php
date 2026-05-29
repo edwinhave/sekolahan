@@ -40,9 +40,14 @@ if (isset($_POST['simpan'])) {
     <meta charset="UTF-8">
     <title>Panel Admin - Input Nilai Rinci</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
     <style>
         body {
             background-color: #f4f7f6;
+            font-family: 'Segoe UI', sans-serif;
         }
 
         .card {
@@ -60,6 +65,37 @@ if (isset($_POST['simpan'])) {
             padding-left: 10px;
             margin-bottom: 20px;
             font-weight: bold;
+        }
+
+        /* Styling Kustom Penyelarasan Select2 dengan Bootstrap 5 */
+        .select2-container--default .select2-selection--single {
+            height: 40px !important;
+            padding: 5px 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px !important;
+            background-color: #fff;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #212529 !important;
+            line-height: 28px !important;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 38px !important;
+        }
+
+        .select2-dropdown {
+            border: 1px solid #dee2e6 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+            border: 1px solid #dee2e6 !important;
+            border-radius: 6px !important;
+            padding: 6px 10px !important;
         }
     </style>
 </head>
@@ -79,10 +115,10 @@ if (isset($_POST['simpan'])) {
                             <div class="row mb-4">
                                 <div class="col-md-6">
                                     <label class="form-label">Pilih Murid</label>
-                                    <select name="nisn" class="form-select" required>
-                                        <option value="">-- Pilih Siswa --</option>
+                                    <select name="nisn" id="select-siswa" class="form-select" required style="width: 100%;">
+                                        <option value="">-- Ketik Nama atau NISN Siswa --</option>
                                         <?php
-                                        $siswa = mysqli_query($conn, "SELECT nisn, nama FROM data_siswa WHERE level='1'");
+                                        $siswa = mysqli_query($conn, "SELECT nisn, nama FROM data_siswa WHERE level='1' ORDER BY nama ASC");
                                         while ($s = mysqli_fetch_assoc($siswa)) {
                                             echo "<option value='" . $s['nisn'] . "'>" . $s['nisn'] . " - " . $s['nama'] . "</option>";
                                         }
@@ -94,7 +130,7 @@ if (isset($_POST['simpan'])) {
                                     <select name="id_mapel" class="form-select" required>
                                         <option value="">-- Pilih Mapel --</option>
                                         <?php
-                                        $mapel = mysqli_query($conn, "SELECT * FROM mata_pelajaran");
+                                        $mapel = mysqli_query($conn, "SELECT * FROM mata_pelajaran ORDER BY matapelajaran ASC");
                                         while ($m = mysqli_fetch_assoc($mapel)) {
                                             echo "<option value='" . $m['id_matapelajaran'] . "'>" . $m['matapelajaran'] . "</option>";
                                         }
@@ -136,6 +172,19 @@ if (isset($_POST['simpan'])) {
         </div>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Mengubah dropdown murid menjadi searchbox
+            $('#select-siswa').select2({
+                placeholder: "-- Ketik Nama atau NISN Siswa --",
+                allowClear: true
+            });
+        });
+    </script>
 </body>
 
 </html>
