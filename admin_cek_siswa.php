@@ -147,14 +147,21 @@ $total_siswa = mysqli_fetch_assoc($q_count_siswa)['total'];
         </div>
 
         <?php if ($user_data): ?>
-            <div class="alert alert-white shadow-sm border-0 mb-4 d-flex align-items-center" style="border-radius: 15px; background: white;">
-                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
-                    <i class="bi bi-person-fill fs-4"></i>
+
+            <div class="alert alert-white shadow-sm border-0 mb-4 d-flex justify-content-between align-items-center" style="border-radius: 15px; background: white;">
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
+                        <i class="bi bi-person-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold m-0"><?php echo $user_data['nama']; ?></h5>
+                        <small class="text-muted">NISN: <?php echo $user_data['nisn']; ?> | Kelas: <?php echo $user_data['kelas']; ?></small>
+                    </div>
                 </div>
-                <div>
-                    <h5 class="fw-bold m-0"><?php echo $user_data['nama']; ?></h5>
-                    <small class="text-muted">NISN: <?php echo $user_data['nisn']; ?> | Kelas: <?php echo $user_data['kelas']; ?></small>
-                </div>
+                <!-- Tombol Cetak Sisi Guru / Wali Kelas -->
+                <a href="cetak.php?nisn=<?php echo $nisn_terpilih; ?>" target="_blank" class="btn btn-outline-primary shadow-sm px-4 rounded-pill">
+                    <i class="bi bi-printer me-1"></i> Cetak Rapor
+                </a>
             </div>
 
             <div class="card info-card mb-4 overflow-hidden">

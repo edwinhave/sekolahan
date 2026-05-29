@@ -182,7 +182,12 @@ if ($level_user == '2') {
                 </div>
             </div>
 
-            <h5 class="fw-bold mb-3 px-2" data-aos="fade-right">Prestasi Akademik</h5>
+            <div class="d-flex justify-content-between align-items-center mb-3 px-2" data-aos="fade-right">
+                <h5 class="fw-bold m-0">Prestasi Akademik</h5>
+                <a href="cetak.php?nisn=<?php echo $nisn_login; ?>" target="_blank" class="btn btn-primary btn-sm px-3 shadow-sm">
+                    <i class="bi bi-printer me-1"></i> Cetak Laporan Nilai
+                </a>
+            </div>
             <div class="card border-0 shadow-sm overflow-hidden mb-4" style="border-radius: 15px;" data-aos="zoom-in-up" data-aos-duration="800">
                 <div class="table-responsive">
                     <table class="table table-hover mb-0">
