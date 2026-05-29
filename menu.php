@@ -151,6 +151,13 @@ if ($level_user == '2') {
                         <small class="text-muted">Cek nilai & absensi per murid</small>
                     </a>
                 </div>
+                <div class="col-md-3" data-aos="flip-left" data-aos-delay="400">
+                    <a href="admin_manajemen_user.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
+                        <i class="bi bi-people fs-2 text-dark mb-2"></i>
+                        <h6 class="fw-bold text-dark mb-1">Manajemen User</h6>
+                        <small class="text-muted">Waiting list & verifikasi akun</small>
+                    </a>
+                </div>
                 <div class="col-md-4" data-aos="flip-left" data-aos-delay="200">
                     <a href="tambah_nilai.php" class="card menu-card text-decoration-none shadow-sm h-100 p-4 text-center border-0">
                         <i class="bi bi-plus-circle fs-2 text-success mb-2"></i>

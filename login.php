@@ -19,10 +19,19 @@ if (isset($_POST['login'])) {
 
     if (mysqli_num_rows($query) > 0) {
         $row = mysqli_fetch_assoc($query);
-        $_SESSION['nisn'] = $row['nisn'];
-        $_SESSION['level'] = $row['level']; // 2 = Admin/Guru, 1 = Siswa
-        header("location:menu.php");
-        exit();
+
+        // --- PROTEKSI BARU: CEK STATUS ANTREAN WAITING LIST ---
+        if ($row['status_akun'] == 'Waiting') {
+            $error = "Akun Anda dalam antrean verifikasi Admin. Mohon tunggu!";
+        } elseif ($row['status_akun'] == 'Rejected') {
+            $error = "Maaf, permohonan pendaftaran akun Anda ditolak oleh sekolah.";
+        } else {
+            // Jika status_akun == 'Approved', baru sesi login resmi dibuka
+            $_SESSION['nisn'] = $row['nisn'];
+            $_SESSION['level'] = $row['level']; // 2 = Admin/Guru, 1 = Siswa
+            header("location:menu.php");
+            exit();
+        }
     } else {
         $error = "Identitas atau password salah!";
     }
@@ -122,12 +131,25 @@ if (isset($_POST['login'])) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(230, 57, 70, 0.3);
         }
+
+        /* Styling Tambahan untuk Tombol Register */
+        .register-link {
+            color: #1D3557;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+
+        .register-link:hover {
+            color: #E63946;
+            text-decoration: underline;
+        }
     </style>
 </head>
 
 <body>
 
-    <!-- Container untuk Animasi Partikel 3D -->
     <div id="canvas-container"></div>
 
     <div class="login-wrapper container">
@@ -155,12 +177,16 @@ if (isset($_POST['login'])) {
                     <label class="form-label small fw-bold text-dark">Password</label>
                     <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                 </div>
-                <button type="submit" name="login" class="btn btn-login btn-danger w-100 text-white shadow-sm mb-2">Masuk Ke Sistem</button>
+                <button type="submit" name="login" class="btn btn-login btn-danger w-100 text-white shadow-sm mb-3">Masuk Ke Sistem</button>
+
+                <div class="mt-2 border-top pt-3 border-secondary border-opacity-25">
+                    <span class="text-dark small opacity-75">Pengguna baru sekolah?</span>
+                    <a href="register.php" class="register-link ms-1">Daftar Akun Di Sini <i class="bi bi-arrow-right"></i></a>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         // --- KONFIGURASI ANIMASI PARTIKEL THREE.JS YANG CERAH ---
