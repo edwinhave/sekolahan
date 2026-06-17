@@ -1,13 +1,13 @@
 <?php
 session_start();
-// Proteksi: Hanya Super Admin/Guru (level 2) yang bisa masuk
+// Proteksi: Hanya Super Admin/Guru Utama (level 2) yang bisa masuk mengelola user
 if (!isset($_SESSION['nisn']) || $_SESSION['level'] != '2') {
     header("location:login.php");
     exit();
 }
 include 'koneksi.php';
 
-// Notifikasi pesan sukses/gagal
+// Notifikasi pesan sukses/gagal verifikasi akun
 $notif = isset($_GET['msg']) ? $_GET['msg'] : '';
 ?>
 
@@ -45,19 +45,28 @@ $notif = isset($_GET['msg']) ? $_GET['msg'] : '';
             background-color: #dc3545;
             color: #fff;
         }
+
+        .btn-mapel {
+            color: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        .btn-mapel:hover {
+            background-color: #0d6efd;
+            color: #fff;
+        }
     </style>
 </head>
 
 <body class="py-4">
 
     <div class="container">
-        <!-- HEADER PANEL -->
         <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-dark text-white rounded-3 shadow-sm">
             <div>
                 <h4 class="fw-bold m-0"><i class="bi bi-people-fill me-2 text-info"></i>Manajemen Pengguna</h4>
                 <small class="opacity-75">Sistem Verifikasi Waiting List Akun Sekolah</small>
             </div>
-            <a href="menu.php" class="btn btn-outline-light btn-sm px-4"><i class="bi bi-house-door"></i> Dashboard</a>
+            <a href="menu.php?kelas=IX&semester=Genap" class="btn btn-outline-light btn-sm px-4"><i class="bi bi-house-door"></i> Dashboard</a>
         </div>
 
         <?php if ($notif == 'approved'): ?>
@@ -72,12 +81,11 @@ $notif = isset($_GET['msg']) ? $_GET['msg'] : '';
             </div>
         <?php elseif ($notif == 'deleted'): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-trash-fill me-2"></i> Data pengguna berhasil dihapus dari sistem.
+                <i class="bi bi-trash-fill me-2"></i> Data pengguna berhasil dihapus secara permanen dari database.
                 <button type="button" class="btn-close" data-bs-dismiss='alert'></button>
             </div>
         <?php endif; ?>
 
-        <!-- TABEL 1: WAITING LIST (ANTREAN VERIFIKASI) -->
         <div class="card mb-4">
             <div class="card-header bg-warning text-dark fw-bold py-3">
                 <i class="bi bi-hourglass-split me-2"></i> Pendaftaran Butuh Verifikasi (Waiting List)
@@ -98,9 +106,10 @@ $notif = isset($_GET['msg']) ? $_GET['msg'] : '';
                         $q_wait = mysqli_query($conn, "SELECT * FROM data_siswa WHERE status_akun = 'Waiting' ORDER BY nama ASC");
                         if (mysqli_num_rows($q_wait) > 0) {
                             while ($w = mysqli_fetch_assoc($q_wait)) {
-                                $role = ($w['level'] == '2') ? 'Guru/Admin' : 'Siswa';
+                                // Pemetaan representasi teks level
+                                $role = ($w['level'] == '2') ? 'Super Admin' : (($w['level'] == '3') ? 'Guru Mapel' : 'Siswa');
                                 echo "<tr>
-                                        <td class='ps-3 fw-bold'>" . $w['nama'] . "<br><span class='text-muted fw-normal' style='font-size:0.75rem;'>NISN: " . $w['nisn'] . " | Kelas: " . $w['kelas'] . "</span></td>
+                                        <td class='ps-3 fw-bold'>" . $w['nama'] . "<br><span class='text-muted fw-normal' style='font-size:0.75rem;'>NISN/ID: " . $w['nisn'] . " | Kelas: " . $w['kelas'] . "</span></td>
                                         <td>" . $w['email'] . "</td>
                                         <td><span class='badge bg-secondary'>" . $role . "</span></td>
                                         <td><span class='badge badge-waiting'>Waiting Approval</span></td>
@@ -119,7 +128,6 @@ $notif = isset($_GET['msg']) ? $_GET['msg'] : '';
             </div>
         </div>
 
-        <!-- TABEL 2: DATA PENGGUNA AKTIF (APPROVED & REJECTED) -->
         <div class="card">
             <div class="card-header bg-white py-3 fw-bold text-dark border-bottom">
                 <i class="bi bi-shield-check me-2 text-success"></i> Seluruh Database Pengguna Terdaftar
@@ -132,28 +140,37 @@ $notif = isset($_GET['msg']) ? $_GET['msg'] : '';
                             <th>Email</th>
                             <th>Role</th>
                             <th>Status Akun</th>
-                            <th class="text-center">Manajemen</th>
+                            <th class="text-center">Manajemen Otoritas</th>
                         </tr>
                     </thead>
                     <tbody class="small">
                         <?php
-                        $q_all = mysqli_query($conn, "SELECT * FROM data_siswa WHERE status_akun IN ('Approved', 'Rejected') ORDER BY status_akun ASC, nama ASC");
+                        $q_all = mysqli_query($conn, "SELECT * FROM data_siswa WHERE status_akun IN ('Approved', 'Rejected') ORDER BY status_akun ASC, level ASC, nama ASC");
                         if (mysqli_num_rows($q_all) > 0) {
                             while ($a = mysqli_fetch_assoc($q_all)) {
-                                $role = ($a['level'] == '2') ? 'Guru/Admin' : 'Siswa';
+                                // Penentuan label role bertingkat
+                                $role = ($a['level'] == '2') ? 'Super Admin' : (($a['level'] == '3') ? 'Guru Mapel' : 'Siswa');
                                 $badge_status = ($a['status_akun'] == 'Approved') ? 'badge-approved' : 'badge-rejected';
+
+                                // --- UPGRADE RBAC: TOMBOL PINTAS UNTUK GURU LEVEL 3 ---
+                                $tombol_mapel = "";
+                                if ($a['level'] == '3') {
+                                    $tombol_mapel = "<a href='admin_akses_guru.php?nisn=" . $a['nisn'] . "' class='btn btn-sm btn-mapel px-2 py-1 me-1' title='Atur Hak Akses Mengajar Mapel'><i class='bi bi-book-half'></i> Atur Mapel</a>";
+                                }
+
                                 echo "<tr>
-                                        <td class='ps-3 fw-bold'>" . $a['nama'] . "<br><span class='text-muted fw-normal' style='font-size:0.75rem;'>NISN: " . $a['nisn'] . "</span></td>
+                                        <td class='ps-3 fw-bold'>" . $a['nama'] . "<br><span class='text-muted fw-normal' style='font-size:0.75rem;'>NISN/ID: " . $a['nisn'] . "</span></td>
                                         <td>" . $a['email'] . "</td>
                                         <td><span class='badge bg-light text-dark border'>" . $role . "</span></td>
                                         <td><span class='badge " . $badge_status . "'>" . $a['status_akun'] . "</span></td>
                                         <td class='text-center'>
+                                            " . $tombol_mapel . "
                                             <a href='proses_verifikasi.php?aksi=delete&nisn=" . $a['nisn'] . "' class='btn btn-sm btn-outline-danger px-2 py-1' onclick='return confirm(\"Apakah Anda yakin ingin menghapus permanen user ini dari database?\")' title='Hapus User'><i class='bi bi-trash3-fill'></i> Hapus</a>
                                         </td>
                                       </tr>";
                             }
                         } else {
-                            echo "<tr><td colspan='5' class='text-center py-4 text-muted'>Belum ada data pengguna aktif.</td></tr>";
+                            echo "<tr><td colspan='5' class='text-center py-4 text-muted'>Belum ada data pengguna aktif di database.</td></tr>";
                         }
                         ?>
                     </tbody>

@@ -1,21 +1,39 @@
 <?php
 session_start();
+
+// PROTEKSI KETAT: Hanya Super Admin (Level 2) yang berhak melakukan Approve/Reject/Delete Akun
+if (!isset($_SESSION['nisn']) || $_SESSION['level'] != '2') {
+    header("location:login.php");
+    exit();
+}
 include 'koneksi.php';
 
-$user_input = mysqli_real_escape_string($conn, $_POST['user_input']);
-$password   = mysqli_real_escape_string($conn, $_POST['password']);
+if (isset($_GET['aksi']) && isset($_GET['nisn'])) {
+    $aksi = mysqli_real_escape_string($conn, $_GET['aksi']);
+    $nisn_user = mysqli_real_escape_string($conn, $_GET['nisn']);
 
-// Query fleksibel: Cek email OR nisn
-$query = mysqli_query($conn, "SELECT * FROM data_siswa WHERE (email = '$user_input' OR nisn = '$user_input') AND password = '$password'");
+    if ($aksi == 'approve') {
+        // Mengubah status akun menjadi Approved agar bisa lolos dari login.php
+        $query = "UPDATE data_siswa SET status_akun = 'Approved' WHERE nisn = '$nisn_user'";
+        $redirect = "approved";
+    } elseif ($aksi == 'reject') {
+        // Mengubah status menjadi Rejected
+        $query = "UPDATE data_siswa SET status_akun = 'Rejected' WHERE nisn = '$nisn_user'";
+        $redirect = "rejected";
+    } elseif ($aksi == 'delete') {
+        // Hapus permanen user dari database sekolah
+        $query = "DELETE FROM data_siswa WHERE nisn = '$nisn_user'";
+        $redirect = "deleted";
+    }
 
-if (mysqli_num_rows($query) > 0) {
-    $data = mysqli_fetch_assoc($query);
-
-    $_SESSION['nisn']  = $data['nisn'];
-    $_SESSION['nama']  = $data['nama'];
-    $_SESSION['level'] = $data['level'];
-
-    header("location:menu.php");
+    if (mysqli_query($conn, $query)) {
+        // KOREKSI GLOBAL: Melempar kembali ke manajemen user dengan parameter teks semester yang sinkron
+        header("location:admin_manajemen_user.php?msg=" . $redirect . "&kelas=IX&semester=Genap");
+        exit();
+    } else {
+        echo "Gagal memproses validasi sistem database: " . mysqli_error($conn);
+    }
 } else {
-    echo "<script>alert('Email/NISN atau Password salah!'); window.location='login.php';</script>";
+    header("location:admin_manajemen_user.php");
+    exit();
 }
