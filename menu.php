@@ -18,13 +18,36 @@ $kelas_aktif = isset($_GET['kelas']) ? mysqli_real_escape_string($conn, $_GET['k
 $semester_aktif = isset($_GET['semester']) ? mysqli_real_escape_string($conn, $_GET['semester']) : 'Genap';
 $mapel_aktif = isset($_GET['mapel']) ? mysqli_real_escape_string($conn, $_GET['mapel']) : '';
 
+// 🌟 LOGIKA PENGUNCI TAB AKTIF SETELAH REFRESH/ONCHANGE DROPDOWN
+// Jika ada mapel atau kelas yang di-request lewat URL, berarti user sedang bekerja di menu operasional.
+$default_panel = "welcome-screen";
+$link_active_class = "link-welcome";
+
+if (isset($_GET['mapel']) || isset($_GET['kelas']) || isset($_GET['semester'])) {
+    // Jika dropdown diubah, kunci halaman agar tetap berada di menu Input Nilai (atau menu yang sesuai)
+    $default_panel = "input-nilai";
+    $link_active_class = "link-input-nilai";
+}
+
+// Logika Toleransi String Kelas ditaruh di paling atas agar Global & Bebas Error
+$cond_kelas = "kelas = '$kelas_aktif'";
+if ($kelas_aktif == 'IX') {
+    $cond_kelas = "(kelas = 'IX' OR kelas = '9')";
+} elseif ($kelas_aktif == 'X') {
+    $cond_kelas = "(kelas = 'X' OR kelas = '10')";
+} elseif ($kelas_aktif == 'XI') {
+    $cond_kelas = "(kelas = 'XI' OR kelas = '11')";
+} elseif ($kelas_aktif == 'VIII') {
+    $cond_kelas = "(kelas = 'VIII' OR kelas = '8')";
+} elseif ($kelas_aktif == 'VII') {
+    $cond_kelas = "(kelas = 'VII' OR kelas = '7')";
+}
+
 // Otomatisasi penentuan mata pelajaran default berdasarkan hak akses mengajar (Level 2 & 3)
 if (($level_user == '2' || $level_user == '3') && empty($mapel_aktif)) {
     if ($level_user == '3') {
-        // Jika Guru (Level 3), ambil mapel pertama miliknya di tabel relasi mengajar_guru
         $q_first = mysqli_query($conn, "SELECT id_matapelajaran FROM mengajar_guru WHERE nisn_guru = '$nisn_login' LIMIT 1");
     } else {
-        // Jika Admin (Level 2), ambil mapel pertama secara global
         $q_first = mysqli_query($conn, "SELECT id_matapelajaran FROM mata_pelajaran ORDER BY matapelajaran ASC LIMIT 1");
     }
     if ($f_mapel = mysqli_fetch_assoc($q_first)) {
@@ -32,7 +55,7 @@ if (($level_user == '2' || $level_user == '3') && empty($mapel_aktif)) {
     }
 }
 
-// --- PROSES BACKEND: SIMPAN MASSAL SPREADSHEET NILAI (Bisa diakses Admin & Guru) ---
+// --- PROSES BACKEND: SIMPAN MASSAL SPREADSHEET NILAI ---
 if (isset($_POST['mass_save_nilai']) && ($level_user == '2' || $level_user == '3')) {
     $mapel_id = mysqli_real_escape_string($conn, $_POST['hidden_mapel']);
     foreach ($_POST['nh'] as $sid => $nh_val) {
@@ -52,12 +75,59 @@ if (isset($_POST['mass_save_nilai']) && ($level_user == '2' || $level_user == '3
     echo "<script>alert('Data komponen nilai berhasil diperbarui!'); window.location='menu.php?kelas=$kelas_aktif&semester=$semester_aktif&mapel=$mapel_aktif';</script>";
 }
 
-// --- FIXED CRITICAL: PROSES BACKEND ADMIN EDIT STATUS LOG KEHADIRAN INLINE ---
-if (isset($_POST['update_absensi_inline']) && $level_user == '2') {
-    $id_kh = mysqli_real_escape_string($conn, $_POST['id_kehadiran']);
-    $status_baru = mysqli_real_escape_string($conn, $_POST['status_baru']);
-    mysqli_query($conn, "UPDATE kehadiran SET status='$status_baru' WHERE id_kehadiran='$id_kh'");
-    echo "<script>alert('Status log kehadiran harian berhasil diubah!'); window.location='menu.php?kelas=$kelas_aktif&semester=$semester_aktif';</script>";
+// --- PROSES SIMPAN ABSENSI MASSAL ---
+if (isset($_POST['simpan_absensi']) && $level_user == '2') {
+
+    $tanggal_absensi = mysqli_real_escape_string(
+        $conn,
+        $_POST['tanggal_absensi']
+    );
+
+    foreach ($_POST['status'] as $nisn => $status) {
+
+        $nisn   = mysqli_real_escape_string($conn, $nisn);
+        $status = mysqli_real_escape_string($conn, $status);
+
+        $cek = mysqli_query(
+            $conn,
+            "SELECT id_kehadiran
+             FROM kehadiran
+             WHERE nisn='$nisn'
+             AND tanggal='$tanggal_absensi'"
+        );
+
+        if (mysqli_num_rows($cek) > 0) {
+
+            mysqli_query(
+                $conn,
+                "UPDATE kehadiran
+                 SET status='$status',
+                     semester='$semester_aktif'
+                 WHERE nisn='$nisn'
+                 AND tanggal='$tanggal_absensi'"
+            );
+        } else {
+
+            mysqli_query(
+                $conn,
+                "INSERT INTO kehadiran
+                (nisn,tanggal,status,semester)
+                VALUES
+                (
+                    '$nisn',
+                    '$tanggal_absensi',
+                    '$status',
+                    '$semester_aktif'
+                )"
+            );
+        }
+    }
+
+    echo "
+    <script>
+        alert('Absensi berhasil disimpan');
+        window.location='menu.php?kelas=$kelas_aktif&semester=$semester_aktif';
+    </script>";
 }
 
 // --- PROSES BACKEND ADMIN: TAMBAH CATATAN PELANGGARAN ---
@@ -68,6 +138,23 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
 
     mysqli_query($conn, "INSERT INTO pelanggaran (nisn, tanggal, jenis_pelanggaran) VALUES ('$nisn_p', '$tgl_p', '$jenis_p')");
     echo "<script>alert('Catatan pelanggaran siswa berhasil ditambahkan!'); window.location='menu.php?kelas=$kelas_aktif&semester=$semester_aktif';</script>";
+}
+
+// --- LOGIKA DETEKSI WAKTU REALTIME UNTUK SAMBUTAN ---
+date_default_timezone_set('Asia/Jakarta');
+$jam = date('H');
+if ($jam >= 5 && $jam < 11) {
+    $sapaan = "Selamat Pagi";
+    $icon_waktu = "bi-brightness-high-fill text-amber-500";
+} elseif ($jam >= 11 && $jam < 15) {
+    $sapaan = "Selamat Siang";
+    $icon_waktu = "bi-sun-fill text-orange-500";
+} elseif ($jam >= 15 && $jam < 18) {
+    $sapaan = "Selamat Sore";
+    $icon_waktu = "bi-cloud-sun-fill text-orange-400";
+} else {
+    $sapaan = "Selamat Malam";
+    $icon_waktu = "bi-moon-stars-fill text-indigo-950";
 }
 ?>
 
@@ -104,6 +191,7 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
 
         .sidebar {
             background: var(--sidebar);
+            transition: all 0.3s ease;
         }
 
         .card {
@@ -133,6 +221,7 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
             align-items: center;
             gap: 8px;
             text-decoration: none;
+            white-space: nowrap;
         }
 
         .nav-link:hover,
@@ -246,22 +335,30 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
             display: none;
         }
 
-        .section-panel.active {
-            display: block;
+        .hide-text {
+            display: none;
         }
     </style>
 </head>
 
-<body class="flex min-h-screen overflow-x-hidden">
+<body class="flex min-h-screen overflow-x-hidden" onload="initActiveTab('<?php echo $default_panel; ?>', '<?php echo $link_active_class; ?>')">
 
     <?php if ($level_user == '2' || $level_user == '3'): ?>
-        <div class="sidebar flex flex-col pt-6 px-0 min-h-screen w-[215px] min-w-[215px] shadow-xl text-white">
-            <div class="px-4 font-bold text-sm mb-1" style="font-family:'DM Serif Display',serif;">
-                <?php echo ($level_user == '2') ? 'Admin Panel' : 'Teacher Panel'; ?>
+        <!-- ======================================================= -->
+        <!-- ======= SIDEBAR GURU & ADMIN =========================== -->
+        <!-- ======================================================= -->
+        <div id="main-sidebar" class="sidebar flex flex-col pt-4 px-0 min-h-screen w-[215px] min-w-[70px] shadow-xl text-white relative">
+            <div class="px-4 flex justify-between items-center mb-2">
+                <div class="sidebar-brand-text font-bold text-sm" style="font-family:'DM Serif Display',serif;">
+                    <?php echo ($level_user == '2') ? 'Admin Panel' : 'Teacher Panel'; ?>
+                </div>
+                <button onclick="toggleSidebar()" class="text-white hover:text-green-200 text-lg focus:outline-none">
+                    <i id="toggle-icon" class="bi bi-arrow-left-square-fill"></i>
+                </button>
             </div>
-            <div class="px-4 text-green-200 text-xs mb-4 opacity-70">SMP Gracia Bandung</div>
+            <div class="px-4 text-green-200 text-xs mb-4 opacity-70 sidebar-brand-text">SMP Gracia Bandung</div>
 
-            <form action="" method="GET" class="px-4 mb-4 space-y-2">
+            <form action="" method="GET" class="px-4 mb-4 space-y-2 sidebar-brand-text">
                 <div>
                     <label class="text-green-200 text-[10px] font-bold block mb-1">PERIODE KELAS</label>
                     <select name="kelas" onchange="this.form.submit()" class="w-full text-xs rounded p-1 text-black">
@@ -283,58 +380,63 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
             </form>
 
             <nav class="flex flex-col gap-1 px-3 mt-2 flex-1">
-                <div class="nav-link active" onclick="switchTab('input-nilai', this)"><i class="bi bi-pencil-square"></i> Input Nilai</div>
-                <div class="nav-link" onclick="switchTab('input-kehadiran', this)"><i class="bi bi-calendar-check"></i> Kehadiran</div>
-                <div class="nav-link" onclick="switchTab('admin-pelanggaran', this)"><i class="bi bi-exclamation-triangle"></i> Pelanggaran</div>
+                <div class="nav-link" id="link-welcome" onclick="switchTab('welcome-screen', this)" title="Sambutan"><i class="bi bi-emoji-smile text-base"></i> <span class="sidebar-text">Welcome</span></div>
+                <div class="nav-link" id="link-input-nilai" onclick="switchTab('input-nilai', this)" title="Input Nilai"><i class="bi bi-pencil-square text-base"></i> <span class="sidebar-text">Input Nilai</span></div>
+                <div class="nav-link" id="link-input-kehadiran" onclick="switchTab('input-kehadiran', this)" title="Kehadiran"><i class="bi bi-calendar-check text-base"></i> <span class="sidebar-text">Kehadiran</span></div>
+                <div class="nav-link" id="link-admin-pelanggaran" onclick="switchTab('admin-pelanggaran', this)" title="Pelanggaran"><i class="bi bi-exclamation-triangle text-base"></i> <span class="sidebar-text">Pelanggaran</span></div>
 
                 <?php if ($level_user == '2'): ?>
-                    <div class="nav-link" onclick="switchTab('progress-input', this)"><i class="bi bi-bar-chart-steps"></i> Progress Input</div>
-                    <div class="nav-link" onclick="switchTab('rekap-kelas', this)"><i class="bi bi-journal-text"></i> Rekap Kelas</div>
-                    <div class="nav-link" onclick="switchTab('data-siswa', this)"><i class="bi bi-people"></i> Data Siswa</div>
-                    <div class="nav-link" onclick="switchTab('kelola-mapel', this)"><i class="bi bi-book"></i> Kelola Mapel</div>
-                    <a href="admin_manajemen_user.php" class="nav-link"><i class="bi bi-person-gear"></i> Manajemen User</a>
+                    <div class="nav-link" id="link-progress-input" onclick="switchTab('progress-input', this)" title="Progress Input"><i class="bi bi-bar-chart-steps text-base"></i> <span class="sidebar-text">Progress Input</span></div>
+                    <div class="nav-link" id="link-rekap-kelas" onclick="switchTab('rekap-kelas', this)" title="Rekap Kelas"><i class="bi bi-journal-text text-base"></i> <span class="sidebar-text">Rekap Kelas</span></div>
+                    <div class="nav-link" id="link-data-siswa" onclick="switchTab('data-siswa', this)" title="Data Siswa"><i class="bi bi-people text-base"></i> <span class="sidebar-text">Data Siswa</span></div>
+                    <div class="nav-link" id="link-kelola-mapel" onclick="switchTab('kelola-mapel', this)" title="Kelola Mapel"><i class="bi bi-book text-base"></i> <span class="sidebar-text">Kelola Mapel</span></div>
+                    <div class="nav-link" id="link-kelola-rapor" onclick="switchTab('kelola-rapor', this)" title="Kelola Rapor"><i class="bi bi-printer-fill text-info text-base"></i> <span class="sidebar-text">Kelola Rapor</span></div>
+                    <a href="admin_manajemen_user.php" class="nav-link" title="Manajemen User"><i class="bi bi-person-gear text-base"></i> <span class="sidebar-text">Manajemen User</span></a>
                 <?php else: ?>
-                    <div class="nav-link" onclick="switchTab('data-siswa', this)"><i class="bi bi-people"></i> Data Siswa</div>
+                    <div class="nav-link" id="link-data-siswa" onclick="switchTab('data-siswa', this)" title="Data Siswa"><i class="bi bi-people text-base"></i> <span class="sidebar-text">Data Siswa</span></div>
                 <?php endif; ?>
             </nav>
 
             <div class="mt-auto mb-5 px-4 pt-4 border-t border-emerald-800">
-                <div class="text-green-100 text-xs font-semibold truncate mb-1"><i class="bi bi-person-badge"></i> <?php echo $user_data['nama']; ?></div>
-                <a href="logout.php" class="text-red-300 hover:text-red-100 text-xs font-bold no-underline flex items-center gap-1">
-                    <i class="bi bi-box-arrow-left"></i> Keluar
+                <div class="text-green-100 text-xs font-semibold truncate mb-1 sidebar-brand-text"><i class="bi bi-person-badge"></i> <?php echo $user_data['nama']; ?></div>
+                <a href="logout.php" class="text-red-300 hover:text-red-100 text-xs font-bold no-underline flex items-center gap-1" title="Keluar">
+                    <i class="bi bi-box-arrow-left text-base"></i> <span class="sidebar-text">Keluar</span>
                 </a>
             </div>
         </div>
 
-        <div class="flex-1 p-5 overflow-y-auto">
-            <div class="text-xs font-bold text-gray-500 mb-3 bg-slate-300 bg-opacity-40 px-3 py-1 rounded inline-block">
-                Periode Aktif: Kelas <?php echo $kelas_aktif; ?> · Semester <?php echo $semester_aktif; ?> · TA 2026/2027
+        <!-- CONTAINER PANEL MANAGEMENT GURU & ADMIN -->
+        <div id="content-wrapper-box" class="flex-1 p-8 overflow-y-auto relative min-h-screen">
+
+            <!-- SUB-PANEL: WELCOME SCREEN -->
+            <div id="welcome-screen" class="section-panel w-full flex flex-col items-center justify-center text-center">
+                <div class="bg-white bg-opacity-40 backdrop-blur-md rounded-3xl p-12 w-full max-w-2xl shadow-xl border border-white border-opacity-40 flex flex-col items-center justify-center">
+                    <div class="mb-5">
+                        <i class="bi <?php echo $icon_waktu; ?>" style="font-size: 6.5rem;"></i>
+                    </div>
+                    <h1 class="text-4xl md:text-5xl font-extrabold text-slate-800 tracking-wide mb-3" style="font-family:'DM Serif Display',serif;">
+                        Halo, <?php echo ($level_user == '2') ? 'admin' : $user_data['nama']; ?>!
+                    </h1>
+                    <p class="text-base md:text-xl text-slate-700 font-medium mb-8 leading-relaxed">
+                        <?php echo $sapaan; ?>, selamat beraktivitas kembali di Sistem E-Rapor Akademik SMP Gracia Bandung.
+                    </p>
+                    <div class="h-[1px] bg-slate-400 w-32 opacity-40 mb-8"></div>
+                    <p class="text-xs md:text-sm text-slate-500 leading-relaxed max-w-md">
+                        Gunakan menu navigasi pada bilah sidebar kiri untuk mengelola komponen nilai spreadsheet, mengontrol log kehadiran, serta monitor status rekapitulasi sekolah.
+                    </p>
+                </div>
             </div>
 
-            <?php
-            $cond_kelas = "kelas = '$kelas_aktif'";
-            if ($kelas_aktif == 'IX') {
-                $cond_kelas = "(kelas = 'IX' OR kelas = '9')";
-            } elseif ($kelas_aktif == 'X') {
-                $cond_kelas = "(kelas = 'X' OR kelas = '10')";
-            } elseif ($kelas_aktif == 'XI') {
-                $cond_kelas = "(kelas = 'XI' OR kelas = '11')";
-            } elseif ($kelas_aktif == 'VIII') {
-                $cond_kelas = "(kelas = 'VIII' OR kelas = '8')";
-            } elseif ($kelas_aktif == 'VII') {
-                $cond_kelas = "(kelas = 'VII' OR kelas = '7')";
-            }
-            ?>
-
-            <div id="input-nilai" class="section-panel active">
-                <h3 class="text-xl font-bold text-gray-700 mb-4" style="font-family:'DM Serif Display',serif;">Input Nilai Kolektif</h3>
-                <div class="card rounded-xl p-4 mb-4 shadow flex items-center justify-between gap-4">
-                    <div class="flex-1">
-                        <label class="text-xs font-bold text-gray-600 block mb-1 text-uppercase">Mata Pelajaran Terotorisasi</label>
+            <!-- SUB-PANEL 1: INPUT NILAI -->
+            <div id="input-nilai" class="section-panel w-full flex flex-col">
+                <h3 class="text-2xl font-extrabold text-gray-700 mb-4" style="font-family:'DM Serif Display',serif;">Input Nilai Kolektif</h3>
+                <div class="card rounded-xl p-5 mb-5 shadow flex items-center justify-between gap-4">
+                    <div class="flex-1 text-left">
+                        <label class="text-xs font-bold text-gray-600 block mb-1.5 text-uppercase">Mata Pelajaran Terotorisasi</label>
                         <form action="" method="GET" class="inline">
                             <input type="hidden" name="kelas" value="<?php echo $kelas_aktif; ?>">
                             <input type="hidden" name="semester" value="<?php echo $semester_aktif; ?>">
-                            <select name="mapel" onchange="this.form.submit()" class="w-full bg-slate-100 font-semibold text-black" style="height:38px;">
+                            <select name="mapel" onchange="this.form.submit()" class="w-full bg-slate-100 font-semibold text-black px-3" style="height:42px;">
                                 <?php
                                 if ($level_user == '3') {
                                     $q_mapel = mysqli_query($conn, "SELECT m.* FROM mata_pelajaran m 
@@ -357,12 +459,12 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
 
                 <form action="" method="POST">
                     <input type="hidden" name="hidden_mapel" value="<?php echo $mapel_aktif; ?>">
-                    <div class="card rounded-2xl shadow mb-4 scroll-x overflow-hidden">
+                    <div class="card rounded-2xl shadow mb-5 scroll-x overflow-hidden">
                         <table>
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th class="text-start ps-4">Nama Siswa</th>
+                                    <th class="text-start ps-5 py-3">Nama Siswa</th>
                                     <th>NH (Harian)</th>
                                     <th>PE (Pengetahuan)</th>
                                     <th>ASAJ (Keterampilan)</th>
@@ -386,87 +488,186 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                                         $na = ($nh * 0.4) + ($pe * 0.3) + ($asaj * 0.3);
                                         $pr = ($na >= 86) ? 'A' : (($na >= 71) ? 'B' : (($na >= 56) ? 'C' : 'D'));
                                         $bg = ($pr == 'A') ? 'badge-a' : (($pr == 'B') ? 'badge-b' : (($pr == 'C') ? 'badge-c' : 'badge-d'));
-                                        echo "<tr>
-                          <td class='text-center font-bold text-slate-400'>" . $no++ . "</td>
-                          <td class='font-semibold ps-4 text-slate-700'>" . $s['nama'] . "</td>
-                          <td class='text-center'><input type='number' name='nh[" . $s['nisn'] . "]' class='score-inp' value='$nh' min='0' max='100' step='0.01'></td>
-                          <td class='text-center'><input type='number' name='pe[" . $s['nisn'] . "]' class='score-inp' value='$pe' min='0' max='100' step='0.01'></td>
-                          <td class='text-center'><input type='number' name='asaj[" . $s['nisn'] . "]' class='score-inp' value='$asaj' min='0' max='100' step='0.01'></td>
-                          <td class='text-center'><input type='number' name='sikap[" . $s['nisn'] . "]' class='score-inp' value='$sk' min='1' max='4' step='0.1'></td>
-                          <td class='text-center font-bold text-slate-800'>" . number_format($na, 2) . "</td>
+                                        echo "<tr class='border-b border-slate-300'>
+                          <td class='text-center font-bold text-slate-400 py-3'>" . $no++ . "</td>
+                          <td class='font-bold ps-5 text-slate-700 text-left'>" . $s['nama'] . "</td>
+                          <td class='text-center'><input type='number' name='nh[" . $s['nisn'] . "]' class='score-inp my-1' value='$nh' min='0' max='100' step='0.01'></td>
+                          <td class='text-center'><input type='number' name='pe[" . $s['nisn'] . "]' class='score-inp my-1' value='$pe' min='0' max='100' step='0.01'></td>
+                          <td class='text-center'><input type='number' name='asaj[" . $s['nisn'] . "]' class='score-inp my-1' value='$asaj' min='0' max='100' step='0.01'></td>
+                          <td class='text-center'><input type='number' name='sikap[" . $s['nisn'] . "]' class='score-inp my-1' value='$sk' min='1' max='4' step='0.1'></td>
+                          <td class='text-center font-extrabold text-slate-800'>" . number_format($na, 2) . "</td>
                           <td class='text-center'><span class='$bg'>$pr</span></td>
                         </tr>";
                                     }
                                 } else {
-                                    echo "<tr><td colspan='8' class='text-center py-5 text-slate-500 italic'>Belum ada data siswa untuk periode Kelas $kelas_aktif pada database lokal.</td></tr>";
+                                    echo "<tr><td colspan='8' class='text-center py-6 text-slate-500 italic font-semibold'>Belum ada data siswa untuk periode Kelas $kelas_aktif pada database lokal.</td></tr>";
                                 }
                                 ?>
                             </tbody>
                         </table>
                     </div>
-                    <button type="submit" name="mass_save_nilai" class="btn-brown w-full text-white font-bold py-3 rounded-xl text-sm shadow-md">💾 Simpan Perubahan Nilai Massal</button>
+                    <button type="submit" name="mass_save_nilai" class="btn-brown w-full text-white font-bold py-3.5 rounded-xl text-sm shadow-md tracking-wide">💾 Simpan Perubahan Nilai Massal</button>
                 </form>
             </div>
 
-            <div id="input-kehadiran" class="section-panel">
-                <h3 class="text-xl font-bold text-gray-700 mb-4" style="font-family:'DM Serif Display',serif;">Log Riwayat Absensi Siswa</h3>
-                <div class="card rounded-2xl p-4 shadow mb-4">
-                    <div class="text-xs font-bold text-gray-500 mb-3 text-uppercase">Daftar Ketidakhadiran Siswa</div>
-                    <div class="scroll-x">
-                        <table class="w-full text-center">
+            <!-- SUB-PANEL 2: KEHADIRAN -->
+            <div id="input-kehadiran" class="section-panel w-full flex flex-col">
+
+                <h3 class="text-2xl font-extrabold text-gray-700 mb-4">
+                    Input Kehadiran Siswa
+                </h3>
+
+                <?php
+                $tanggal_pilih =
+                    isset($_GET['tanggal_absensi'])
+                    ? $_GET['tanggal_absensi']
+                    : date('Y-m-d');
+                ?>
+
+                <form method="GET" class="mb-4">
+
+                    <input type="hidden" name="kelas"
+                        value="<?php echo $kelas_aktif; ?>">
+
+                    <input type="hidden" name="semester"
+                        value="<?php echo $semester_aktif; ?>">
+
+                    <label class="font-bold text-sm">
+                        Tanggal :
+                    </label>
+
+                    <input
+                        type="date"
+                        name="tanggal_absensi"
+                        value="<?php echo $tanggal_pilih; ?>"
+                        onchange="this.form.submit()">
+
+                </form>
+
+                <form method="POST">
+
+                    <input
+                        type="hidden"
+                        name="tanggal_absensi"
+                        value="<?php echo $tanggal_pilih; ?>">
+
+                    <div class="card rounded-2xl shadow overflow-hidden">
+
+                        <table>
+
                             <thead>
                                 <tr>
-                                    <th class="text-start ps-3">Nama Siswa</th>
-                                    <th>Tanggal Absen</th>
-                                    <th>Status</th><?php if ($level_user == '2') echo "<th>Aksi Otoritas Admin</th>"; ?>
+                                    <th>No</th>
+                                    <th>Nama Siswa</th>
+                                    <th>Tanggal</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
+
                             <tbody>
                                 <?php
-                                // SINKRON: Menggunakan k.id_kehadiran untuk mencegah error kolom k.tanggal di laptop temanmu
-                                $q_kh = mysqli_query($conn, "SELECT k.*, s.nama FROM kehadiran k JOIN data_siswa s ON k.nisn=s.nisn WHERE s.level='1' AND k.status != 'Hadir' AND k.semester='$semester_aktif' ORDER BY k.id_kehadiran DESC");
-                                if (mysqli_num_rows($q_kh) > 0) {
-                                    while ($kh = mysqli_fetch_assoc($q_kh)) {
-                                        $badge = ($kh['status'] == 'Alpha') ? 'bg-danger' : (($kh['status'] == 'Izin') ? 'bg-warning text-dark' : 'bg-info text-white');
-                                        echo "<tr>
-                                    <td class='text-start ps-3 font-bold'>" . $kh['nama'] . "</td>
-                                    <td>" . date('d M Y', strtotime($kh['tanggal'])) . "</td>
-                                    <td><span class='badge $badge px-2 py-1 rounded'>" . $kh['status'] . "</span></td>";
-                                        if ($level_user == '2') {
-                                            echo "<td>
-                                        <form action='' method='POST' class='d-flex gap-1 justify-content-center'>
-                                            <input type='hidden' name='id_kehadiran' value='" . $kh['id_kehadiran'] . "'>
-                                            <select name='status_baru' class='text-xs rounded bg-white border' onchange='this.form.submit()'>
-                                                <option value='Hadir'>Set Hadir</option>
-                                                <option value='Izin' " . ($kh['status'] == 'Izin' ? 'selected' : '') . ">Izin</option>
-                                                <option value='Sakit' " . ($kh['status'] == 'Sakit' ? 'selected' : '') . ">Sakit</option>
-                                                <option value='Alpha' " . ($kh['status'] == 'Alpha' ? 'selected' : '') . ">Alpha</option>
-                                            </select>
-                                            <input type='hidden' name='update_absensi_inline' value='1'>
-                                        </form>
-                                    </td>";
-                                        }
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='4' class='py-4 text-muted italic'>Tidak ada data ketidakhadiran siswa kelas $kelas_aktif tercatat.</td></tr>";
-                                }
+
+                                $no = 1;
+
+                                $q_siswa = mysqli_query(
+                                    $conn,
+                                    "SELECT *
+     FROM data_siswa
+     WHERE level='1'
+     AND $cond_kelas
+     ORDER BY nama ASC"
+                                );
+
+                                while ($s = mysqli_fetch_assoc($q_siswa)) {
+
+                                    $q_absen = mysqli_query(
+                                        $conn,
+                                        "SELECT status
+         FROM kehadiran
+         WHERE nisn='" . $s['nisn'] . "'
+         AND tanggal='$tanggal_pilih'"
+                                    );
+
+                                    $absen = mysqli_fetch_assoc($q_absen);
+
+                                    $status =
+                                        $absen['status'] ?? 'Hadir';
+
                                 ?>
+                                    <tr>
+
+                                        <td><?php echo $no++; ?></td>
+
+                                        <td>
+                                            <?php echo $s['nama']; ?>
+                                        </td>
+
+                                        <td>
+                                            <?php echo date(
+                                                'd-m-Y',
+                                                strtotime($tanggal_pilih)
+                                            ); ?>
+                                        </td>
+
+                                        <td>
+
+                                            <select
+                                                name="status[<?php echo $s['nisn']; ?>]">
+
+                                                <option value="Hadir"
+                                                    <?= ($status == 'Hadir') ? 'selected' : ''; ?>>
+                                                    Masuk
+                                                </option>
+
+                                                <option value="Alpha"
+                                                    <?= ($status == 'Alpha') ? 'selected' : ''; ?>>
+                                                    Alpha
+                                                </option>
+
+                                                <option value="Sakit"
+                                                    <?= ($status == 'Sakit') ? 'selected' : ''; ?>>
+                                                    Sakit
+                                                </option>
+
+                                                <option value="Izin"
+                                                    <?= ($status == 'Izin') ? 'selected' : ''; ?>>
+                                                    Izin
+                                                </option>
+
+                                            </select>
+
+                                        </td>
+
+                                    </tr>
+
+                                <?php } ?>
                             </tbody>
                         </table>
                     </div>
-                </div>
+
+                    <button
+                        type="submit"
+                        name="simpan_absensi"
+                        class="btn-brown w-full mt-4 text-white font-bold py-3 rounded-xl">
+
+                        💾 Simpan Absensi
+
+                    </button>
+
+                </form>
+
             </div>
 
-            <div id="admin-pelanggaran" class="section-panel">
-                <h3 class="text-xl font-bold text-gray-700 mb-4" style="font-family:'DM Serif Display',serif;">Log Catatan Pelanggaran &amp; Disiplin</h3>
+            <!-- SUB-PANEL 3: PELANGGARAN -->
+            <div id="admin-pelanggaran" class="section-panel w-full flex flex-col">
+                <h3 class="text-xl font-bold text-gray-700 mb-4 text-left" style="font-family:'DM Serif Display',serif;">Log Catatan Pelanggaran &amp; Disiplin</h3>
 
                 <?php if ($level_user == '2'): ?>
-                    <div class="card rounded-xl p-4 mb-4 shadow flex flex-wrap md:flex-nowrap items-end gap-3 bg-white">
-                        <form action="" method="POST" class="w-full grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div class="card rounded-xl p-5 mb-5 shadow flex flex-wrap md:flex-nowrap items-end gap-3 bg-white">
+                        <form action="" method="POST" class="w-full grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
                             <div>
-                                <label class="text-[11px] font-bold text-gray-500 block mb-1 text-uppercase">PILIH SISWA</label>
-                                <select name="nisn_pelanggaran" class="w-full text-black bg-slate-100" required style="height: 38px;">
+                                <label class="text-[11px] font-bold text-gray-500 block mb-1.5 tracking-wider">PILIH SISWA</label>
+                                <select name="nisn_pelanggaran" class="w-full text-black bg-slate-100 px-3" required style="height: 42px;">
                                     <option value="">-- Pilih Murid --</option>
                                     <?php
                                     $q_mrd = mysqli_query($conn, "SELECT nisn, nama FROM data_siswa WHERE level='1' AND $cond_kelas ORDER BY nama ASC");
@@ -477,15 +678,15 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                                 </select>
                             </div>
                             <div>
-                                <label class="text-[11px] font-bold text-gray-500 block mb-1 text-uppercase">TANGGAL KEJADIAN</label>
-                                <input type="date" name="tgl_pelanggaran" class="w-full bg-slate-100 text-black font-semibold" style="height: 38px;" value="<?php echo date('Y-m-d'); ?>" required>
+                                <label class="text-[11px] font-bold text-gray-500 block mb-1.5 tracking-wider">TANGGAL KEJADIAN</label>
+                                <input type="date" name="tgl_pelanggaran" class="w-full bg-slate-100 text-black font-semibold px-3" style="height: 42px;" value="<?php echo date('Y-m-d'); ?>" required>
                             </div>
                             <div>
-                                <label class="text-[11px] font-bold text-gray-500 block mb-1 text-uppercase">JENIS PELANGGARAN</label>
-                                <input type="text" name="jenis_pelanggaran" class="w-full bg-slate-100 text-black font-semibold" style="height: 38px;" placeholder="Contoh: Terlambat, Atribut tidak lengkap" required autocomplete="off">
+                                <label class="text-[11px] font-bold text-gray-500 block mb-1.5 tracking-wider">JENIS PELANGGARAN</label>
+                                <input type="text" name="jenis_pelanggaran" class="w-full bg-slate-100 text-black font-semibold px-3" style="height: 42px;" placeholder="Contoh: Terlambat, Atribut tidak lengkap" required autocomplete="off">
                             </div>
                             <div class="flex items-end">
-                                <button type="submit" name="tambah_pelanggaran_massal" class="btn-brown w-full text-white font-bold rounded-xl text-xs shadow" style="height: 38px;">
+                                <button type="submit" name="tambah_pelanggaran_massal" class="btn-brown w-full text-white font-bold rounded-xl text-xs shadow" style="height: 42px;">
                                     <i class="bi bi-plus-circle-fill"></i> Tambah Log Kasus
                                 </button>
                             </div>
@@ -493,11 +694,11 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                     </div>
                 <?php endif; ?>
 
-                <div class="card rounded-2xl shadow p-4 scroll-x bg-white">
+                <div class="card rounded-2xl shadow p-5 scroll-x bg-white">
                     <table>
                         <thead>
                             <tr>
-                                <th class="text-start ps-3">Nama Siswa</th>
+                                <th class="text-start ps-4 py-3">Nama Siswa</th>
                                 <th>Tanggal</th>
                                 <th>Jenis Pelanggaran</th>
                                 <th>Poin Bobot</th>
@@ -508,15 +709,15 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                             $q_pl = mysqli_query($conn, "SELECT p.*, s.nama FROM pelanggaran p JOIN data_siswa s ON p.nisn=s.nisn WHERE s.level='1' ORDER BY p.tanggal DESC");
                             if (mysqli_num_rows($q_pl) > 0) {
                                 while ($pl = mysqli_fetch_assoc($q_pl)) {
-                                    echo "<tr class='align-middle'>
-                                <td class='text-start ps-3 font-bold text-slate-700'>" . $pl['nama'] . "</td>
-                                <td class='text-center text-slate-500'>" . date('Y-m-d', strtotime($pl['tanggal'])) . "</td>
+                                    echo "<tr class='align-middle border-b border-slate-200'>
+                                <td class='text-start ps-4 font-bold text-slate-700 py-3'>" . $pl['nama'] . "</td>
+                                <td class='text-center text-slate-500 font-semibold'>" . date('Y-m-d', strtotime($pl['tanggal'])) . "</td>
                                 <td class='font-bold text-danger text-start'>" . $pl['jenis_pelanggaran'] . "</td>
                                 <td class='text-center font-extrabold text-red-600'>5 Poin</td>
                             </tr>";
                                 }
                             } else {
-                                echo "<tr><td colspan='4' class='py-5 text-center text-slate-400 italic'>Sistem bersih. Belum ada catatan kasus pelanggaran.</td></tr>";
+                                echo "<tr><td colspan='4' class='py-6 text-center text-slate-400 italic font-semibold'>Sistem bersih. Belum ada catatan kasus pelanggaran.</td></tr>";
                             }
                             ?>
                         </tbody>
@@ -524,21 +725,22 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                 </div>
             </div>
 
-            <div id="progress-input" class="section-panel">
-                <h3 class="text-xl font-bold mb-3">Progress Input Nilai</h3>
-                <p class="text-muted small">Modul monitoring ketersediaan nilai 100% sinkron.</p>
+            <!-- MODUL LAINNYA -->
+            <div id="progress-input" class="section-panel w-full flex flex-col text-left">
+                <h3 class="text-2xl font-extrabold text-gray-700 mb-3" style="font-family:'DM Serif Display',serif;">Progress Input Nilai</h3>
+                <p class="text-slate-600 font-medium">Modul monitoring ketersediaan nilai 100% sinkron.</p>
             </div>
-            <div id="rekap-kelas" class="section-panel">
-                <h3 class="text-xl font-bold mb-3">Rekap Kelas</h3>
-                <p class="text-muted small">Pencetakan laporan rekapitulasi nilai F4 legal sekolah.</p>
+            <div id="rekap-kelas" class="section-panel w-full flex flex-col text-left">
+                <h3 class="text-2xl font-extrabold text-gray-700 mb-4" style="font-family:'DM Serif Display',serif;">Rekap Kelas</h3>
+                <p class="text-xs text-slate-600 font-medium">Pencetakan laporan rekapitulasi nilai F4 legal sekolah.</p>
             </div>
-            <div id="data-siswa" class="section-panel">
-                <h3 class="text-xl font-bold mb-3">Data Siswa Terdaftar</h3>
-                <div class="card rounded-xl p-3 shadow text-xs">
+            <div id="data-siswa" class="section-panel w-full flex flex-col">
+                <h3 class="text-2xl font-extrabold text-gray-700 mb-4 text-left" style="font-family:'DM Serif Display',serif;">Data Siswa Terdaftar</h3>
+                <div class="card rounded-2xl p-5 shadow text-xs">
                     <table class="w-full text-left">
                         <thead>
                             <tr>
-                                <th class="ps-2">Nama</th>
+                                <th class="ps-3 py-3">Nama</th>
                                 <th>NISN</th>
                                 <th>Kelas</th>
                             </tr>
@@ -547,27 +749,82 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                             <?php
                             $q_all_s = mysqli_query($conn, "SELECT nama, nisn, kelas FROM data_siswa WHERE level='1' AND $cond_kelas ORDER BY nama ASC");
                             while ($as = mysqli_fetch_assoc($q_all_s)) {
-                                echo "<tr><td class='ps-2 font-bold'>" . $as['nama'] . "</td><td>" . $as['nisn'] . "</td><td>" . $as['kelas'] . "</td></tr>";
+                                echo "<tr class='border-b border-slate-300'><td class='ps-3 font-bold py-3 text-slate-700'>" . $as['nama'] . "</td><td class='font-semibold text-slate-500'>" . $as['nisn'] . "</td><td class='font-bold text-slate-600'>" . $as['kelas'] . "</td></tr>";
                             }
                             ?>
                         </tbody>
                     </table>
                 </div>
             </div>
-            <div id="kelola-mapel" class="section-panel">
-                <h3 class="text-xl font-bold mb-3">Kelola Mata Pelajaran</h3>
-                <p class="text-muted small">Konfigurasi data master KKM sekolah.</p>
+            <div id="kelola-mapel" class="section-panel w-full flex flex-col text-left">
+                <h3 class="text-2xl font-extrabold text-gray-700 mb-3" style="font-family:'DM Serif Display',serif;">Kelola Mata Pelajaran</h3>
+                <p class="text-slate-600 font-medium">Konfigurasi data master KKM sekolah.</p>
             </div>
+
+            <!-- SUB-PANEL KELOLA RAPOR -->
+            <?php if ($level_user == '2'): ?>
+                <div id="kelola-rapor" class="section-panel w-full flex flex-col">
+                    <h3 class="text-2xl font-extrabold text-gray-700 mb-4 text-left" style="font-family:'DM Serif Display',serif;">Kelola &amp; Cetak Rapor Digital</h3>
+                    <div class="card rounded-2xl shadow p-5 bg-white">
+                        <div class="text-xs font-bold text-gray-500 mb-4 uppercase text-left tracking-wider">Daftar Generator Rapor Kelas <?php echo $kelas_aktif; ?></div>
+                        <div class="scroll-x">
+                            <table class="w-full align-middle text-center">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-4 py-3" style="text-align: left;">Nama Siswa</th>
+                                        <th>NISN</th>
+                                        <th>Status Kelengkapan Nilai</th>
+                                        <th class="text-center">Aksi Dokumen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $q_rapor = mysqli_query($conn, "SELECT nisn, nama FROM data_siswa WHERE level='1' AND $cond_kelas ORDER BY nama ASC");
+                                    if (mysqli_num_rows($q_rapor) > 0) {
+                                        while ($r = mysqli_fetch_assoc($q_rapor)) {
+                                            $cek_n = mysqli_query($conn, "SELECT COUNT(*) as jml FROM tabel_nilai WHERE nisn='" . $r['nisn'] . "' AND semester='$semester_aktif'");
+                                            $jml_nilai = mysqli_fetch_assoc($cek_n)['jml'];
+                                            $status_badge = ($jml_nilai > 0) ? "<span class='bg-emerald-100 text-emerald-800 text-[11px] px-2.5 py-1 rounded font-bold'>$jml_nilai Mapel Terisi</span>" : "<span class='bg-rose-100 text-red-800 text-[11px] px-2.5 py-1 rounded font-bold'>Belum Anda Nilai</span>";
+
+                                            echo "<tr class='border-b border-slate-200'>
+                                    <td class='ps-4 font-bold text-slate-700 py-3.5 text-left'>" . $r['nama'] . "</td>
+                                    <td class='text-center text-slate-500 font-semibold'>" . $r['nisn'] . "</td>
+                                    <td class='text-center'>" . $status_badge . "</td>
+                                    <td class='text-center'>
+                                        <a href='cetak.php?nisn=" . $r['nisn'] . "&semester=" . $semester_aktif . "' target='_blank' class='inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] px-3.5 py-2 rounded-lg shadow-sm transition-all no-underline'>
+                                            <i class='bi bi-printer'></i> Cetak Rapor
+                                        </a>
+                                    </td>
+                                </tr>";
+                                        }
+                                    } else {
+                                        echo "<tr><td colspan='4' class='text-center py-5 text-slate-400 italic font-semibold'>Tidak ada data murid terdeteksi di kelas ini.</td></tr>";
+                                    }
+                                    ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
         </div>
 
     <?php else: ?>
+        <!-- ======================================================= -->
+        <!-- ======= PORTAL DASHBOARD MURID (Level 1) ============== -->
+        <!-- ======================================================= -->
         <div class="w-full flex min-h-screen">
-            <div class="sidebar flex flex-col pt-6 px-0 min-h-screen w-[195px] min-w-[195px] shadow-2xl text-white">
-                <div class="px-4 font-bold text-sm mb-1" style="font-family:'DM Serif Display',serif;">Portal Murid</div>
-                <div class="px-4 text-green-200 text-xs mb-5 opacity-70">SMP Gracia Bandung</div>
+            <div id="siswa-sidebar" class="sidebar flex flex-col pt-4 px-0 min-h-screen w-[195px] min-w-[70px] shadow-2xl text-white relative">
+                <div class="px-4 flex justify-between items-center mb-1">
+                    <div class="sidebar-brand-text font-bold text-sm" style="font-family:'DM Serif Display',serif;">Portal Murid</div>
+                    <button onclick="toggleSiswaSidebar()" class="text-white hover:text-green-200 text-lg focus:outline-none">
+                        <i id="toggle-icon-siswa" class="bi bi-arrow-left-square-fill"></i>
+                    </button>
+                </div>
+                <div class="px-4 text-green-200 text-xs mb-5 opacity-70 sidebar-brand-text">SMP Gracia Bandung</div>
 
-                <div class="px-4 mb-4">
+                <div class="px-4 mb-4 sidebar-brand-text">
                     <div class="text-green-200 text-[10px] mb-1 font-bold tracking-wider">SEMESTER</div>
                     <form action="" method="GET">
                         <select name="semester" onchange="this.form.submit()" class="w-full text-xs rounded p-1 text-black">
@@ -578,18 +835,40 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                 </div>
 
                 <nav class="flex flex-col gap-1 px-3 flex-1">
-                    <div class="nav-link active" onclick="switchTab('s-dashboard', this)"><i class="bi bi-house-door"></i> Dashboard Academic</div>
-                    <div class="nav-link" onclick="switchTab('s-nilai', this)"><i class="bi bi-journal-check"></i> Nilai Rapor</div>
-                    <div class="nav-link" onclick="switchTab('s-kehadiran', this)"><i class="bi bi-calendar2-week"></i> Kehadiran</div>
-                    <div class="nav-link" onclick="switchTab('s-pelanggaran', this)"><i class="bi bi-exclamation-octagon"></i> Pelanggaran</div>
+                    <div class="nav-link active" id="link-welcome-siswa" onclick="switchTab('s-welcome-screen', this)" title="Sambutan"><i class="bi bi-emoji-smile text-base"></i> <span class="sidebar-text">Welcome</span></div>
+                    <div class="nav-link" id="link-s-dashboard" onclick="switchTab('s-dashboard', this)" title="Dashboard Academic"><i class="bi bi-house-door text-base"></i> <span class="sidebar-text">Dashboard Academic</span></div>
+                    <div class="nav-link" id="link-s-nilai" onclick="switchTab('s-nilai', this)" title="Nilai Rapor"><i class="bi bi-journal-check text-base"></i> <span class="sidebar-text">Nilai Rapor</span></div>
+                    <div class="nav-link" id="link-s-kehadiran" onclick="switchTab('s-kehadiran', this)" title="Kehadiran"><i class="bi bi-calendar2-week text-base"></i> <span class="sidebar-text">Kehadiran</span></div>
+                    <div class="nav-link" id="link-s-pelanggaran" onclick="switchTab('s-pelanggaran', this)" title="Pelanggaran"><i class="bi bi-exclamation-octagon text-base"></i> <span class="sidebar-text">Pelanggaran</span></div>
                 </nav>
 
                 <div class="mt-auto mb-5 px-3">
-                    <a href="logout.php" class="nav-link text-red-300 font-bold no-underline"><i class="bi bi-box-arrow-left"></i> Keluar</a>
+                    <a href="logout.php" class="nav-link text-red-300 font-bold no-underline" title="Keluar"><i class="bi bi-box-arrow-left text-base"></i> <span class="sidebar-text">Keluar</span></a>
                 </div>
             </div>
 
-            <div class="flex-1 overflow-auto p-5">
+            <!-- CONTAINER PORTAL SISWA -->
+            <div id="siswa-content-wrapper-box" class="flex-1 overflow-auto p-8 relative min-h-screen">
+
+                <!-- SUB-PANEL SAMBUTAN SISWA -->
+                <div id="s-welcome-screen" class="section-panel w-full flex flex-col items-center justify-center text-center">
+                    <div class="bg-white bg-opacity-40 backdrop-blur-md rounded-3xl p-12 w-full max-w-2xl shadow-xl border border-white border-opacity-40 flex flex-col items-center justify-center">
+                        <div class="mb-5">
+                            <i class="bi <?php echo $icon_waktu; ?>" style="font-size: 6.5rem;"></i>
+                        </div>
+                        <h1 class="text-4xl md:text-5xl font-extrabold text-slate-800 tracking-wide mb-3" style="font-family:'DM Serif Display',serif;">
+                            Halo, <?php echo $user_data['nama']; ?>!
+                        </h1>
+                        <p class="text-base md:text-xl text-slate-700 font-medium mb-8 leading-relaxed">
+                            <?php echo $sapaan; ?>, selamat datang di Portal Rapor SMP Gracia Bandung.
+                        </p>
+                        <div class="h-[1px] bg-slate-400 w-32 opacity-40 mb-8"></div>
+                        <p class="text-xs md:text-sm text-slate-500 leading-relaxed max-w-md">
+                            Silakan gunakan menu navigasi sidebar kiri untuk melihat Dashboard Rangkuman Akademik, rincian Nilai Rapor berjalan, serta rekapitulasi data absensi bulanan.
+                        </p>
+                    </div>
+                </div>
+
                 <?php
                 $q_total_avg = mysqli_query($conn, "SELECT AVG((pe1+pe2+pe3)/3) as rata FROM tabel_nilai WHERE nisn = '$nisn_login' AND semester='$semester_aktif'");
                 $res_avg = mysqli_fetch_assoc($q_total_avg)['rata'];
@@ -610,14 +889,14 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                 $q_izin = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_login' AND status = 'Izin' AND semester = '$semester_aktif'");
                 $izin = mysqli_fetch_assoc($q_izin)['total'];
 
-                // CLEAN FIXED: Memperbaiki typo kata rusak "FROM傷害" menjadi kueri resmi 'kehadiran'
                 $q_alpha = mysqli_query($conn, "SELECT COUNT(*) as total FROM kehadiran WHERE nisn = '$nisn_login' AND status = 'Alpha' AND semester = '$semester_aktif'");
                 $alpha = mysqli_fetch_assoc($q_alpha)['total'];
 
                 $persen_hadir = ($total_hari > 0) ? round(($hadir / $total_hari) * 100) : 100;
                 ?>
 
-                <div id="s-dashboard" class="section-panel active">
+                <!-- SUB-TAB 1 - DASHBOARD AKADEMIK -->
+                <div id="s-dashboard" class="section-panel w-full flex flex-col text-left">
                     <div class="flex items-center gap-2 mb-4">
                         <span class="text-xs font-bold text-gray-500">Kelas <?php echo $user_data['kelas']; ?> · Semester <?php echo $semester_aktif == 'Genap' ? '2 (Genap)' : '1 (Ganjil)'; ?> · 2026/2027</span>
                         <span class="text-xs bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Aktif</span>
@@ -721,8 +1000,8 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                                                 $b_s = 'badge-d';
                                             }
 
-                                            echo "<tr class='align-middle'>";
-                                            echo "<td class='text-center text-slate-400 font-bold'>" . $s_no++ . "</td>";
+                                            echo "<tr class='align-middle border-b'>";
+                                            echo "<td class='text-center text-slate-400 font-bold py-2'>" . $s_no++ . "</td>";
                                             echo "<td class='font-semibold text-slate-700' style='padding-left: 10px;'>" . $row['matapelajaran'] . "</td>";
                                             echo "<td class='text-center'>" . number_format($nh_s, 1) . "</td>";
                                             echo "<td class='text-center'>" . number_format($pe_s, 1) . "</td>";
@@ -741,7 +1020,8 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                     </div>
                 </div>
 
-                <div id="s-nilai" class="section-panel">
+                <!-- SUB-TAB 2: NILAI RAPOR -->
+                <div id="s-nilai" class="section-panel w-full flex flex-col text-left">
                     <h4 class="font-bold text-gray-700 mb-3 text-base">Halaman Capaian Komponen Nilai Rapor</h4>
                     <div class="card rounded-2xl p-4 shadow-md bg-white overflow-hidden">
                         <div class="scroll-x">
@@ -765,15 +1045,15 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                                         $na_s = ($row['pe1'] * 0.4) + ($row['pe2'] * 0.3) + ($row['pe3'] * 0.3);
                                         $p_s = ($na_s >= 86) ? 'A' : (($na_s >= 71) ? 'B' : (($na_s >= 56) ? 'C' : 'D'));
                                         $b_s = ($p_s == 'A') ? 'badge-a' : (($p_s == 'B') ? 'badge-b' : (($p_s == 'C') ? 'badge-c' : 'badge-d'));
-                                        echo "<tr>
-                              <td class='text-center text-slate-400 font-bold'>" . $s_no2++ . "</td>
-                              <td class='font-semibold text-slate-700 ps-2'>" . $row['matapelajaran'] . "</td>
-                              <td class='text-center'>" . number_format($row['pe1'], 1) . "</td>
-                              <td class='text-center'>" . number_format($row['pe2'], 1) . "</td>
-                              <td class='text-center'>" . number_format($row['pe3'], 1) . "</td>
-                              <td class='text-center font-extrabold text-slate-800'>" . number_format($na_s, 2) . "</td>
-                              <td class='text-center'><span class='$b_s'>$p_s</span></td>
-                          </tr>";
+                                        echo "<tr class='border-b'>";
+                                        echo "<td class='text-center text-slate-400 font-bold py-2'>" . $s_no2++ . "</td>";
+                                        echo "<td class='font-semibold text-slate-700 ps-2'>" . $row['matapelajaran'] . "</td>";
+                                        echo "<td class='text-center'>" . number_format($row['pe1'], 1) . "</td>";
+                                        echo "<td class='text-center'>" . number_format($row['pe2'], 1) . "</td>";
+                                        echo "<td class='text-center'>" . number_format($row['pe3'], 1) . "</td>";
+                                        echo "<td class='text-center font-extrabold text-slate-800'>" . number_format($na_s, 2) . "</td>";
+                                        echo "<td class='text-center'><span class='$b_s'>$p_s</span></td>";
+                                        echo "</tr>";
                                     }
                                     ?>
                                 </tbody>
@@ -782,7 +1062,8 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                     </div>
                 </div>
 
-                <div id="s-kehadiran" class="section-panel">
+                <!-- SUB-TAB 3: KEHADIRAN -->
+                <div id="s-kehadiran" class="section-panel w-full flex flex-col text-left">
                     <h4 class="font-bold text-gray-700 mb-3 text-base">Catatan Kehadiran Per Bulan</h4>
                     <div class="card rounded-2xl p-4 bg-white shadow overflow-hidden">
                         <table class="w-full text-center">
@@ -804,11 +1085,11 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                                     $b = mysqli_fetch_assoc($q_inner);
                                     $tot_b = $b['h'] + $b['s'] + $b['i'] + $b['a'];
                                     $pct_b = ($tot_b > 0) ? round(($b['h'] / $tot_b) * 100) : 100;
-                                    echo "<tr>
-                        <td class='text-start font-semibold ps-2'>$nama</td>
-                        <td class='text-green-700 font-bold'>" . $b['h'] . "</td><td>" . $b['s'] . "</td><td>" . $b['i'] . "</td><td class='text-red-600'>" . $b['a'] . "</td>
-                        <td class='font-bold'>$pct_b%</td>
-                      </tr>";
+                                    echo "<tr class='border-b'>";
+                                    echo "<td class='text-start font-semibold ps-2 py-2.5'>$nama</td>";
+                                    echo "<td class='text-green-700 font-bold'>" . $b['h'] . "</td><td>" . $b['s'] . "</td><td>" . $b['i'] . "</td><td class='text-red-600'>" . $b['a'] . "</td>";
+                                    echo "<td class='font-bold'>$pct_b%</td>";
+                                    echo "</tr>";
                                 }
                                 ?>
                             </tbody>
@@ -816,13 +1097,14 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                     </div>
                 </div>
 
-                <div id="s-pelanggaran" class="section-panel">
+                <!-- SUB-TAB 4: PELANGGARAN -->
+                <div id="s-pelanggaran" class="section-panel w-full flex flex-col text-left">
                     <h4 class="font-bold text-gray-700 mb-3 text-base">Catatan Pelanggaran &amp; Disiplin PSAS</h4>
                     <div class="card rounded-2xl p-4 bg-white shadow overflow-hidden">
                         <table class="w-full text-left">
                             <thead>
                                 <tr>
-                                    <th class="ps-2">Tanggal Kejadian</th>
+                                    <th class="ps-2 py-2">Tanggal Kejadian</th>
                                     <th>Jenis Pelanggaran</th>
                                     <th class="text-center">Bobot Poin</th>
                                 </tr>
@@ -832,11 +1114,11 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
                                 $q_p = mysqli_query($conn, "SELECT * FROM pelanggaran WHERE nisn='$nisn_login' ORDER BY tanggal DESC");
                                 if (mysqli_num_rows($q_p) > 0) {
                                     while ($p = mysqli_fetch_assoc($q_p)) {
-                                        echo "<tr>
-                                  <td class='text-slate-500 ps-2'>" . date('Y-m-d', strtotime($p['tanggal'])) . "</td>
-                                  <td class='font-bold text-slate-700'>" . $p['jenis_pelanggaran'] . "</td>
-                                  <td class='text-center text-red-600 font-bold'>5 Poin</td>
-                              </tr>";
+                                        echo "<tr class='border-b'>";
+                                        echo "<td class='text-slate-500 ps-2 py-2.5'>" . date('Y-m-d', strtotime($p['tanggal'])) . "</td>";
+                                        echo "<td class='font-bold text-slate-700'>" . $p['jenis_pelanggaran'] . "</td>";
+                                        echo "<td class='text-center text-red-600 font-bold'>5 Poin</td>";
+                                        echo "</tr>";
                                     }
                                 } else {
                                     echo "<tr><td colspan='3' class='text-center py-4 text-slate-400 italic'>Siswa teladan. Rekam riwayat pelanggaran bersih.</td></tr>";
@@ -850,24 +1132,127 @@ if (isset($_POST['tambah_pelanggaran_massal']) && $level_user == '2') {
         </div>
     <?php endif; ?>
 
+    <!-- ======================================================= -->
+    <!-- JAVASCRIPT FIXED RUNTIME FUNCTION CONTROLLER             -->
+    <!-- ======================================================= -->
     <script>
-        function switchTab(targetId, element) {
-            // 1. Sembunyikan seluruh modul panel konten
+        // Fungsi inisialisasi awal saat halaman pertama kali memuat (Onload)
+        function initActiveTab(panelId, linkId) {
             const panels = document.querySelectorAll('.section-panel');
-            panels.forEach(panel => panel.classList.remove('active'));
+            panels.forEach(panel => {
+                panel.style.setProperty('display', 'none', 'important');
+            });
 
-            // 2. Aktifkan panel target yang dituju berdasarkan ID
-            const targetPanel = document.getElementById(targetId);
+            // Aktifkan panel target inisialisasi
+            const targetPanel = document.getElementById(panelId);
             if (targetPanel) {
-                targetPanel.classList.add('active');
+                targetPanel.style.setProperty('display', 'flex', 'important');
             }
 
-            // 3. Bersihkan status active lama pada link sidebar
+            // Aktifkan visual link menu di sidebar
+            const activeLink = document.getElementById(linkId);
+            if (activeLink) {
+                // Bersihkan nav-link active lainnya
+                const links = document.querySelectorAll('.nav-link');
+                links.forEach(link => link.classList.remove('active'));
+                activeLink.classList.add('active');
+            }
+
+            // Atur perataan box pembungkus
+            const wrapperBox = document.getElementById('content-wrapper-box');
+            if (wrapperBox) {
+                if (panelId === 'welcome-screen') {
+                    wrapperBox.style.setProperty('display', 'flex', 'important');
+                    wrapperBox.style.setProperty('justify-content', 'center', 'important');
+                    wrapperBox.style.setProperty('align-items', 'center', 'important');
+                } else {
+                    wrapperBox.style.setProperty('display', 'block', 'important');
+                }
+            }
+        }
+
+        // Fungsi perpindahan tab dinamis (SPA) saat diklik manual
+        function switchTab(targetId, element) {
+            const panels = document.querySelectorAll('.section-panel');
+            panels.forEach(panel => {
+                panel.style.setProperty('display', 'none', 'important');
+            });
+
+            const targetPanel = document.getElementById(targetId);
+            if (targetPanel) {
+                targetPanel.style.setProperty('display', 'flex', 'important');
+            }
+
+            // Kontrol Layout Induk Admin & Guru
+            const wrapperBox = document.getElementById('content-wrapper-box');
+            if (wrapperBox) {
+                if (targetId === 'welcome-screen') {
+                    wrapperBox.style.setProperty('display', 'flex', 'important');
+                    wrapperBox.style.setProperty('justify-content', 'center', 'important');
+                    wrapperBox.style.setProperty('align-items', 'center', 'important');
+                } else {
+                    wrapperBox.style.setProperty('display', 'block', 'important');
+                }
+            }
+
+            // Kontrol Layout Induk Siswa
+            const siswaWrapperBox = document.getElementById('siswa-content-wrapper-box');
+            if (siswaWrapperBox) {
+                if (targetId === 's-welcome-screen') {
+                    siswaWrapperBox.style.setProperty('display', 'flex', 'important');
+                    siswaWrapperBox.style.setProperty('justify-content', 'center', 'important');
+                    siswaWrapperBox.style.setProperty('align-items', 'center', 'important');
+                } else {
+                    siswaWrapperBox.style.setProperty('display', 'block', 'important');
+                }
+            }
+
             const links = document.querySelectorAll('.nav-link');
             links.forEach(link => link.classList.remove('active'));
 
-            // 4. Set tombol menu yang diklik saat ini menjadi aktif
             element.classList.add('active');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('main-sidebar');
+            const toggleIcon = document.getElementById('toggle-icon');
+            const brandTexts = document.querySelectorAll('.sidebar-brand-text');
+            const textElements = document.querySelectorAll('.sidebar-text');
+
+            if (sidebar.classList.contains('w-[215px]')) {
+                sidebar.classList.remove('w-[215px]');
+                sidebar.classList.add('w-[70px]');
+                toggleIcon.className = "bi bi-arrow-right-square-fill";
+                brandTexts.forEach(el => el.classList.add('hide-text'));
+                textElements.forEach(el => el.classList.add('hide-text'));
+            } else {
+                sidebar.classList.remove('w-[70px]');
+                sidebar.classList.add('w-[215px]');
+                toggleIcon.className = "bi bi-arrow-left-square-fill";
+                brandTexts.forEach(el => el.classList.remove('hide-text'));
+                textElements.forEach(el => el.classList.remove('hide-text'));
+            }
+        }
+
+        function toggleSiswaSidebar() {
+            const sidebar = document.getElementById('siswa-sidebar');
+            const toggleIcon = document.getElementById('toggle-icon-siswa');
+            const brandTexts = document.querySelectorAll('.sidebar-brand-text');
+            const textElements = document.querySelectorAll('.sidebar-text');
+
+            if (sidebar.classList.contains('w-[195px]')) {
+                sidebar.classList.remove('w-[195px]');
+                sidebar.classList.add('w-[70px]');
+                toggleIcon.className = "bi bi-arrow-right-square-fill";
+                brandTexts.forEach(el => el.classList.add('hide-text'));
+                textElements.forEach(el => el.classList.add('hide-text'));
+            } else {
+                sidebar.classList.remove('w-[70px]');
+                sidebar.classList.add('w-[195px]');
+                toggleIcon.className = "bi bi-arrow-left-square-fill";
+                brandTexts.forEach(el => el.classList.remove('hide-text'));
+                textElements.forEach(el => el.classList.remove('hide-text'));
+            }
         }
     </script>
 </body>
